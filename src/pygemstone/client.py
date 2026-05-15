@@ -22,7 +22,21 @@ from .errors import (
     GemstoneAuthError,
     GemstoneConnectionError,
 )
-from .models import DeviceState, HomeGroup, Pattern
+from .models import (
+    AccountProfile,
+    Announcement,
+    DeviceState,
+    DownloadableFolder,
+    DownloadablePattern,
+    EventsSettings,
+    Folder,
+    FolderPattern,
+    HomeGroup,
+    HomeGroupUser,
+    Pattern,
+    SubscribedEvent,
+    Swatch,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -133,6 +147,136 @@ class GemstoneClient:
             json_body={"pattern": pattern.to_api()},
         )
         return str(payload.get("data", {}).get("txId", ""))
+
+    # ------------------------------------------------------------------
+    # Account / home-group admin
+    # ------------------------------------------------------------------
+
+    async def account_profile(self) -> AccountProfile:
+        """Return the signed-in user's profile."""
+        payload = await self._get("/account/profile")
+        return AccountProfile.from_api(payload.get("data", {}) or {})
+
+    async def homegroup_users(self, homegroup_id: str) -> list[HomeGroupUser]:
+        """List the members of a home group."""
+        payload = await self._get(
+            "/homegroup/users", params={"homegroupId": homegroup_id}
+        )
+        return [HomeGroupUser.from_api(u) for u in payload.get("data", []) or []]
+
+    async def invitations(
+        self, status: str = "pending"
+    ) -> list[dict[str, Any]]:
+        """List home-group invitations for the signed-in user.
+
+        The capture only saw an empty list for ``status="pending"`` so we
+        don't yet know the per-invitation schema; raw dicts are returned
+        unchanged.
+        """
+        payload = await self._get(
+            "/homegroup/invitation", params={"invitationStatus": status}
+        )
+        return list(payload.get("data", []) or [])
+
+    async def device_groups(self, homegroup_id: str) -> list[dict[str, Any]]:
+        """List device groups (multi-device zones) in a home group.
+
+        The capture saw an empty list — the per-group schema is not yet
+        known — so raw dicts are returned.
+        """
+        payload = await self._get(
+            "/deviceGroup/list", params={"homegroupId": homegroup_id}
+        )
+        return list(payload.get("data", []) or [])
+
+    # ------------------------------------------------------------------
+    # Pattern catalogue
+    # ------------------------------------------------------------------
+
+    async def folders(self) -> list[Folder]:
+        """List the user's own pattern folders."""
+        payload = await self._get("/folders/list")
+        return [Folder.from_api(f) for f in payload.get("data", []) or []]
+
+    async def folder_patterns(self, page: int = 1) -> list[FolderPattern]:
+        """One page of the user's saved patterns across all folders."""
+        payload = await self._get(
+            "/folders/pattern/list", params={"page": str(page)}
+        )
+        return [FolderPattern.from_api(p) for p in payload.get("data", []) or []]
+
+    async def save_folder(
+        self, folder_id: str, body: dict[str, Any]
+    ) -> Folder:
+        """Create or update a folder.
+
+        ``body`` should match the wire shape sent by the official app
+        (``folderId``, ``ownerId``, ``name``, ``icon``,
+        ``backgroundColor``, ``isSynchronized``, ``createdAt``,
+        ``newFolder``).
+        """
+        payload = await self._put(
+            "/folders/save", params={"folderId": folder_id}, json_body=body
+        )
+        return Folder.from_api(payload.get("data", {}) or {})
+
+    async def swatches(self) -> list[Swatch]:
+        """List the user's colour swatches (named palettes)."""
+        payload = await self._get("/swatches/list")
+        return [Swatch.from_api(s) for s in payload.get("data", []) or []]
+
+    async def downloadable_folders(
+        self, page: int = 1
+    ) -> list[DownloadableFolder]:
+        """One page of Gemstone-curated downloadable folders."""
+        payload = await self._get(
+            "/downloads/folders/listGemstoneManaged", params={"page": str(page)}
+        )
+        return [
+            DownloadableFolder.from_api(f) for f in payload.get("data", []) or []
+        ]
+
+    async def downloadable_patterns(
+        self, page: int = 1
+    ) -> list[DownloadablePattern]:
+        """One page of Gemstone-curated downloadable patterns."""
+        payload = await self._get(
+            "/downloads/folders/pattern/listGemstoneManaged",
+            params={"page": str(page)},
+        )
+        return [
+            DownloadablePattern.from_api(p) for p in payload.get("data", []) or []
+        ]
+
+    # ------------------------------------------------------------------
+    # Autopilot / scheduling
+    # ------------------------------------------------------------------
+
+    async def events_settings(self, homegroup_id: str) -> EventsSettings:
+        """Autopilot calendar + daily schedule for a home group."""
+        payload = await self._get(
+            "/events/settings", params={"homegroupId": homegroup_id}
+        )
+        return EventsSettings.from_api(payload.get("data", {}) or {})
+
+    async def subscribed_events(
+        self, homegroup_id: str, page: int = 0
+    ) -> list[SubscribedEvent]:
+        """One page of subscribed autopilot events (e.g. holidays)."""
+        payload = await self._get(
+            "/events/listSubscribed",
+            params={"homegroupId": homegroup_id, "page": str(page)},
+        )
+        return [SubscribedEvent.from_api(e) for e in payload.get("data", []) or []]
+
+    # ------------------------------------------------------------------
+    # Misc
+    # ------------------------------------------------------------------
+
+    async def announcements(self) -> list[Announcement]:
+        """In-app announcements (welcome messages, promotions, etc.)."""
+        payload = await self._get("/announcements")
+        return [Announcement.from_api(a) for a in payload.get("data", []) or []]
 
     @asynccontextmanager
     async def _request(

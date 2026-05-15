@@ -142,3 +142,417 @@ class DeviceState:
             last_updated_at=_ts(payload.get("lastUpdatedAt")),
             raw=payload,
         )
+
+
+@dataclass(slots=True)
+class AccountProfile:
+    """The signed-in user's account profile (``/account/profile``)."""
+
+    id: str
+    username: str
+    email: str
+    email_opt_in: bool = False
+    cancelled_deletion: bool = False
+    scanned_device_ids: dict[str, str] = field(default_factory=dict)
+    created_at: datetime | None = None
+    last_updated_at: datetime | None = None
+    raw: dict[str, Any] = field(default_factory=dict)
+
+    @classmethod
+    def from_api(cls, payload: dict[str, Any]) -> "AccountProfile":
+        return cls(
+            id=payload.get("id", ""),
+            username=payload.get("username", ""),
+            email=payload.get("email", ""),
+            email_opt_in=bool(payload.get("emailOptIn", False)),
+            cancelled_deletion=bool(payload.get("cancelledDeletion", False)),
+            scanned_device_ids=dict(payload.get("scannedDeviceIds", {}) or {}),
+            created_at=_ts(payload.get("createdAt")),
+            last_updated_at=_ts(payload.get("lastUpdatedAt")),
+            raw=payload,
+        )
+
+
+@dataclass(slots=True)
+class HomeGroupUser:
+    """A member of a home group (``/homegroup/users``)."""
+
+    user_id: str
+    homegroup_id: str
+    homegroup_name: str
+    role: str
+    invitation_status: str
+    username: str
+    email: str
+    created_at: datetime | None = None
+    last_updated_at: datetime | None = None
+    raw: dict[str, Any] = field(default_factory=dict)
+
+    @classmethod
+    def from_api(cls, payload: dict[str, Any]) -> "HomeGroupUser":
+        return cls(
+            user_id=payload.get("userId", ""),
+            homegroup_id=payload.get("homegroupId", ""),
+            homegroup_name=payload.get("homegroupName", ""),
+            role=payload.get("role", ""),
+            invitation_status=payload.get("invitationStatus", ""),
+            username=payload.get("username", ""),
+            email=payload.get("email", ""),
+            created_at=_ts(payload.get("createdAt")),
+            last_updated_at=_ts(payload.get("lastUpdatedAt")),
+            raw=payload,
+        )
+
+
+@dataclass(slots=True)
+class Folder:
+    """A user-defined folder of patterns (``/folders/list``).
+
+    ``gemstone_managed`` distinguishes Gemstone's curated folders
+    (which can't be edited) from user-created ones.
+    """
+
+    folder_id: str
+    name: str
+    icon: str
+    owner_id: str
+    gemstone_managed: bool = False
+    reference_folder_id: str | None = None
+    background_color: int | None = None
+    hidden: bool = False
+    created_at: datetime | None = None
+    last_updated_at: datetime | None = None
+    raw: dict[str, Any] = field(default_factory=dict)
+
+    @classmethod
+    def from_api(cls, payload: dict[str, Any]) -> "Folder":
+        bg = payload.get("backgroundColor")
+        return cls(
+            folder_id=payload.get("folderId", ""),
+            name=payload.get("name", ""),
+            icon=payload.get("icon", ""),
+            owner_id=payload.get("ownerId", ""),
+            gemstone_managed=bool(payload.get("gemstoneManaged", False)),
+            reference_folder_id=payload.get("referenceFolderId"),
+            background_color=int(bg) if bg is not None else None,
+            hidden=bool(payload.get("hidden", False)),
+            created_at=_ts(payload.get("createdAt")),
+            last_updated_at=_ts(payload.get("lastUpdatedAt")),
+            raw=payload,
+        )
+
+
+@dataclass(slots=True)
+class FolderPattern:
+    """A pattern slot inside a folder (``/folders/pattern/list``).
+
+    The actual pattern body lives in ``pattern``; the rest is folder
+    metadata describing how the pattern is associated with the folder
+    (favourite flag, hidden, reference link back to the source).
+    """
+
+    id: str
+    folder_id: str
+    owner_id: str
+    pattern: Pattern
+    reference_pattern_id: str | None = None
+    reference_folder_id: str | None = None
+    is_favorite: bool = False
+    hidden: bool = False
+    gemstone_managed: bool = False
+    created_at: datetime | None = None
+    last_updated_at: datetime | None = None
+    raw: dict[str, Any] = field(default_factory=dict)
+
+    @classmethod
+    def from_api(cls, payload: dict[str, Any]) -> "FolderPattern":
+        pat_data = payload.get("patternData", {}) or {}
+        return cls(
+            id=payload.get("id", ""),
+            folder_id=payload.get("folderId", ""),
+            owner_id=payload.get("ownerId", ""),
+            pattern=Pattern.from_api(pat_data),
+            reference_pattern_id=payload.get("referencePatternId"),
+            reference_folder_id=payload.get("referenceFolderId"),
+            is_favorite=bool(payload.get("isFavorite", False)),
+            hidden=bool(payload.get("hidden", False)),
+            gemstone_managed=bool(payload.get("gemstoneManaged", False)),
+            created_at=_ts(payload.get("createdAt")),
+            last_updated_at=_ts(payload.get("lastUpdatedAt")),
+            raw=payload,
+        )
+
+
+@dataclass(slots=True)
+class DownloadableFolder:
+    """A Gemstone-curated folder available for download.
+
+    From ``/downloads/folders/listGemstoneManaged``.
+    """
+
+    id: str
+    name: str
+    folder_name: str
+    icon: str
+    category: str
+    uploader_id: str
+    downloads: int = 0
+    background_color: int | None = None
+    badge: dict[str, Any] | None = None
+    created_at: datetime | None = None
+    last_updated_at: datetime | None = None
+    approved_at: datetime | None = None
+    raw: dict[str, Any] = field(default_factory=dict)
+
+    @classmethod
+    def from_api(cls, payload: dict[str, Any]) -> "DownloadableFolder":
+        bg = payload.get("backgroundColor")
+        return cls(
+            id=payload.get("id", ""),
+            name=payload.get("name", ""),
+            folder_name=payload.get("folderName", ""),
+            icon=payload.get("icon", ""),
+            category=payload.get("category", ""),
+            uploader_id=payload.get("uploaderId", ""),
+            downloads=int(payload.get("downloads", 0) or 0),
+            background_color=int(bg) if bg is not None else None,
+            badge=payload.get("badge"),
+            created_at=_ts(payload.get("createdAt")),
+            last_updated_at=_ts(payload.get("lastUpdatedAt")),
+            approved_at=_ts(payload.get("approvedAt")),
+            raw=payload,
+        )
+
+
+@dataclass(slots=True)
+class DownloadablePattern:
+    """A pattern available for download from the Gemstone catalogue.
+
+    From ``/downloads/folders/pattern/listGemstoneManaged``.
+    """
+
+    id: str
+    pattern: Pattern
+    downloadable_folder_id: str
+    category: str
+    pattern_name: str
+    uploader_id: str
+    downloads: int = 0
+    badge: dict[str, Any] | None = None
+    created_at: datetime | None = None
+    last_updated_at: datetime | None = None
+    approved_at: datetime | None = None
+    raw: dict[str, Any] = field(default_factory=dict)
+
+    @classmethod
+    def from_api(cls, payload: dict[str, Any]) -> "DownloadablePattern":
+        pat_data = payload.get("patternData", {}) or {}
+        return cls(
+            id=payload.get("id", ""),
+            pattern=Pattern.from_api(pat_data),
+            downloadable_folder_id=payload.get("downloadableFolderId", ""),
+            category=payload.get("category", ""),
+            pattern_name=payload.get("patternName", ""),
+            uploader_id=payload.get("uploaderId", ""),
+            downloads=int(payload.get("downloads", 0) or 0),
+            badge=payload.get("badge"),
+            created_at=_ts(payload.get("createdAt")),
+            last_updated_at=_ts(payload.get("lastUpdatedAt")),
+            approved_at=_ts(payload.get("approvedAt")),
+            raw=payload,
+        )
+
+
+@dataclass(slots=True)
+class SwatchColor:
+    """One named colour inside a :class:`Swatch`."""
+
+    color: int
+    name: str
+
+    @classmethod
+    def from_api(cls, payload: dict[str, Any]) -> "SwatchColor":
+        return cls(color=int(payload.get("color", 0)), name=payload.get("name", ""))
+
+
+@dataclass(slots=True)
+class Swatch:
+    """A named colour palette (``/swatches/list``)."""
+
+    id: str
+    name: str
+    owner_id: str
+    colors: list[SwatchColor] = field(default_factory=list)
+    created_at: datetime | None = None
+    last_updated_at: datetime | None = None
+    raw: dict[str, Any] = field(default_factory=dict)
+
+    @classmethod
+    def from_api(cls, payload: dict[str, Any]) -> "Swatch":
+        return cls(
+            id=payload.get("id", ""),
+            name=payload.get("name", ""),
+            owner_id=payload.get("ownerId", ""),
+            colors=[
+                SwatchColor.from_api(c)
+                for c in payload.get("swatchesColorData", []) or []
+            ],
+            created_at=_ts(payload.get("createdAt")),
+            last_updated_at=_ts(payload.get("lastUpdatedAt")),
+            raw=payload,
+        )
+
+
+@dataclass(slots=True)
+class EventsScheduleWindow:
+    """Daily on/off window used by autopilot scheduling."""
+
+    on_time: str
+    off_time: str
+    on_offset_minutes: int = 0
+    off_offset_minutes: int = 0
+
+    @classmethod
+    def from_api(cls, payload: dict[str, Any]) -> "EventsScheduleWindow":
+        return cls(
+            on_time=payload.get("onTime", ""),
+            off_time=payload.get("offTime", ""),
+            on_offset_minutes=int(payload.get("onOffsetInMinutes", 0) or 0),
+            off_offset_minutes=int(payload.get("offOffsetInMinutes", 0) or 0),
+        )
+
+
+@dataclass(slots=True)
+class EventsSettings:
+    """Home-group autopilot/scheduling settings (``/events/settings``)."""
+
+    homegroup_id: str
+    category_ids: list[str] = field(default_factory=list)
+    device_ids: list[str] = field(default_factory=list)
+    setup_yet: bool = False
+    allow_static_patterns: bool = True
+    allow_animated_patterns: bool = True
+    schedule: EventsScheduleWindow | None = None
+    created_at: datetime | None = None
+    last_updated_at: datetime | None = None
+    raw: dict[str, Any] = field(default_factory=dict)
+
+    @classmethod
+    def from_api(cls, payload: dict[str, Any]) -> "EventsSettings":
+        sched = payload.get("schedule")
+        return cls(
+            homegroup_id=payload.get("homegroupId", ""),
+            category_ids=list(payload.get("categoryIds", []) or []),
+            device_ids=list(payload.get("deviceIds", []) or []),
+            setup_yet=bool(payload.get("setupYet", False)),
+            allow_static_patterns=bool(payload.get("allowStaticPatterns", True)),
+            allow_animated_patterns=bool(payload.get("allowAnimatedPatterns", True)),
+            schedule=EventsScheduleWindow.from_api(sched) if sched else None,
+            created_at=_ts(payload.get("createdAt")),
+            last_updated_at=_ts(payload.get("lastUpdatedAt")),
+            raw=payload,
+        )
+
+
+@dataclass(slots=True)
+class SubscribedEvent:
+    """A scheduled autopilot event (``/events/listSubscribed``).
+
+    Each subscribed event represents a date range (e.g. "Memorial Day")
+    bound to a category, with a pool of static and animated patterns
+    that can play on that day plus a current ``selected_pattern``.
+    """
+
+    event_id: str
+    name: str
+    homegroup_id: str
+    category_id: str
+    category_name: str
+    icon: str
+    group: str
+    year_month_half: str
+    start_date: str
+    end_date: str
+    background_color: int | None = None
+    static_patterns: list[Pattern] = field(default_factory=list)
+    animated_patterns: list[Pattern] = field(default_factory=list)
+    selected_pattern: Pattern | None = None
+    created_at: datetime | None = None
+    last_updated_at: datetime | None = None
+    raw: dict[str, Any] = field(default_factory=dict)
+
+    @classmethod
+    def from_api(cls, payload: dict[str, Any]) -> "SubscribedEvent":
+        bg = payload.get("backgroundColor")
+        sel = payload.get("selectedPattern")
+        return cls(
+            event_id=payload.get("eventId", ""),
+            name=payload.get("name", ""),
+            homegroup_id=payload.get("homegroupId", ""),
+            category_id=payload.get("categoryId", ""),
+            category_name=payload.get("categoryName", ""),
+            icon=payload.get("icon", ""),
+            group=payload.get("group", ""),
+            year_month_half=payload.get("yearMonthHalf", ""),
+            start_date=payload.get("startDate", ""),
+            end_date=payload.get("endDate", ""),
+            background_color=int(bg) if bg is not None else None,
+            static_patterns=[
+                Pattern.from_api(p) for p in payload.get("staticPatterns", []) or []
+            ],
+            animated_patterns=[
+                Pattern.from_api(p) for p in payload.get("animatedPatterns", []) or []
+            ],
+            selected_pattern=Pattern.from_api(sel) if sel else None,
+            created_at=_ts(payload.get("createdAt")),
+            last_updated_at=_ts(payload.get("lastUpdatedAt")),
+            raw=payload,
+        )
+
+
+@dataclass(slots=True)
+class Announcement:
+    """An in-app announcement (``/announcements``)."""
+
+    id: str
+    title: str
+    description_text: str
+    icon: str
+    start_date: str
+    end_date: str
+    roles: list[str] = field(default_factory=list)
+    background_color: int | None = None
+    minimum_app_version: str | None = None
+    close_button_text: str = ""
+    close_button_action: str = ""
+    close_action_value: str = ""
+    done_button_text: str = ""
+    done_button_action: str = ""
+    done_action_value: str = ""
+    created_at: datetime | None = None
+    last_updated_at: datetime | None = None
+    raw: dict[str, Any] = field(default_factory=dict)
+
+    @classmethod
+    def from_api(cls, payload: dict[str, Any]) -> "Announcement":
+        bg = payload.get("backgroundColor")
+        return cls(
+            id=payload.get("id", ""),
+            title=payload.get("title", ""),
+            description_text=payload.get("descriptionText", ""),
+            icon=payload.get("icon", ""),
+            start_date=payload.get("startDate", ""),
+            end_date=payload.get("endDate", ""),
+            roles=list(payload.get("roles", []) or []),
+            background_color=int(bg) if bg is not None else None,
+            minimum_app_version=payload.get("minimumAppVersion"),
+            close_button_text=payload.get("closeButtonText", ""),
+            close_button_action=payload.get("closeButtonAction", ""),
+            close_action_value=payload.get("closeActionValue", ""),
+            done_button_text=payload.get("doneButtonText", ""),
+            done_button_action=payload.get("doneButtonAction", ""),
+            done_action_value=payload.get("doneActionValue", ""),
+            created_at=_ts(payload.get("createdAt")),
+            last_updated_at=_ts(payload.get("lastUpdatedAt")),
+            raw=payload,
+        )

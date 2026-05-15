@@ -20,17 +20,29 @@ is essentially:
 ## Features
 
 - Async login / token refresh (via Cognito User Pool SRP)
-- List home groups and devices
-- Read current state (on/off, active pattern, brightness)
-- Turn lights on / off
-- Replay or push a pattern
+- **Account & home group:**
+  - `account_profile()` — your user profile
+  - `homegroups()` / `homegroup_users(hg)`
+  - `invitations(status="pending")` — pending invites (raw dict; schema unknown)
+- **Devices:**
+  - `devices(hg)` — list controllers
+  - `device_state(id)` / `set_on_state(id, on)` / `play_pattern(id, p)`
+  - `device_groups(hg)` — multi-device zones (raw dict; schema unknown)
+- **Pattern catalogue:**
+  - `folders()` / `folder_patterns(page=N)` / `save_folder(id, body)`
+  - `swatches()` — colour palettes
+  - `downloadable_folders(page=N)` / `downloadable_patterns(page=N)` — Gemstone-curated catalogue
+- **Autopilot / scheduling:**
+  - `events_settings(hg)` — daily on/off window + enabled categories
+  - `subscribed_events(hg, page=N)` — date-bound holiday/event subscriptions
+- **Misc:**
+  - `announcements()` — in-app announcements
 
 ## Planned
 
 - AppSync real-time subscriptions for live state push
-- Device-group control (we have the endpoint, just not the schema yet)
-- Schedules and event subscriptions
-- Pattern catalogue browsing
+- Cognito global sign-out (currently only clears local tokens)
+- Schedule/event subscribe + unsubscribe mutations
 
 ## Installation
 

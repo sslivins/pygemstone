@@ -12,7 +12,23 @@ from .errors import (
     GemstoneValueError,
 )
 from .models import Device as DeviceRecord
-from .models import DeviceState, HomeGroup, Pattern
+from .models import (
+    AccountProfile,
+    Announcement,
+    DeviceState,
+    DownloadableFolder,
+    DownloadablePattern,
+    EventsScheduleWindow,
+    EventsSettings,
+    Folder,
+    FolderPattern,
+    HomeGroup,
+    HomeGroupUser,
+    Pattern,
+    SubscribedEvent,
+    Swatch,
+    SwatchColor,
+)
 
 __version__ = "0.0.1"
 
@@ -25,6 +41,18 @@ __all__ = [
     "DeviceState",
     "HomeGroup",
     "Pattern",
+    "AccountProfile",
+    "Announcement",
+    "DownloadableFolder",
+    "DownloadablePattern",
+    "EventsScheduleWindow",
+    "EventsSettings",
+    "Folder",
+    "FolderPattern",
+    "HomeGroupUser",
+    "SubscribedEvent",
+    "Swatch",
+    "SwatchColor",
     "GemstoneError",
     "GemstoneAuthError",
     "GemstoneApiError",

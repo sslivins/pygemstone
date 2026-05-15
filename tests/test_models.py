@@ -4,7 +4,22 @@ from __future__ import annotations
 
 import pytest
 
-from pygemstone.models import Device, DeviceState, HomeGroup, Pattern
+from pygemstone.models import (
+    AccountProfile,
+    Announcement,
+    Device,
+    DeviceState,
+    DownloadableFolder,
+    DownloadablePattern,
+    EventsSettings,
+    Folder,
+    FolderPattern,
+    HomeGroup,
+    HomeGroupUser,
+    Pattern,
+    SubscribedEvent,
+    Swatch,
+)
 
 
 # Sample taken from GET /prod/homegroup/list, sensitive IDs scrubbed.
@@ -46,6 +61,208 @@ STATE_SAMPLE = {
         "direction": 0,
         "referencePatternId": "bd209c83-79c2-2f31-c3dc-3313dd0e59e0",
     },
+}
+
+
+# Sample taken from GET /prod/account/profile.
+PROFILE_SAMPLE = {
+    "username": "Tester",
+    "scannedDeviceIds": {"1767392003": "h2-1065-6kys"},
+    "id": "00000000-0000-0000-0000-000000000001",
+    "lastUpdatedAt": 1734173108,
+    "emailOptIn": False,
+    "email": "tester@example.com",
+    "createdAt": 1734173061,
+    "cancelledDeletion": False,
+}
+
+# Sample taken from GET /prod/homegroup/users.
+HOMEGROUP_USER_SAMPLE = {
+    "userId": "00000000-0000-0000-0000-000000000001",
+    "role": "homegroupOwner",
+    "lastUpdatedAt": 1734173119,
+    "createdAt": 1734173119,
+    "invitationStatus": "approved",
+    "homegroupName": "Test Homegroup",
+    "homegroupId": "5bf619c5-7d30-45a3-abb5-000000000000",
+    "username": "Tester",
+    "email": "tester@example.com",
+}
+
+# Sample taken from GET /prod/folders/list.
+FOLDER_SAMPLE = {
+    "gemstoneManaged": False,
+    "icon": "ice_hockey",
+    "createdAt": 1753632068,
+    "lastUpdatedAt": 1753632070,
+    "backgroundColor": 4294960870,
+    "name": "Vancouver Canucks",
+    "ownerId": "00000000-0000-0000-0000-000000000001",
+    "hidden": False,
+    "referenceFolderId": "04015429-b1dd-a687-ed98-30b8ee56299e",
+    "folderId": "549352c4-7507-4895-abad-a9a46e6af42b",
+}
+
+# Sample taken from GET /prod/folders/pattern/list.
+FOLDER_PATTERN_SAMPLE = {
+    "id": "5cbddc1d-aea9-4267-8280-188f1ebb15f3",
+    "patternData": {
+        "backgroundColor": 0,
+        "brightness": 255,
+        "name": "Pastel Hearts",
+        "id": "5cbddc1d-aea9-4267-8280-188f1ebb15f3",
+        "colors": [3437183, 16453106, 6190060, 15448029, 79934, 6553729],
+        "speed": 224,
+        "referencePatternId": "7b6e5fe8-947f-8027-962c-4e2358b1ff6d",
+        "animation": "motionless",
+        "direction": 0,
+    },
+    "gemstoneManaged": True,
+    "referencePatternId": "7b6e5fe8-947f-8027-962c-4e2358b1ff6d",
+    "folderId": "16a64251-5d3b-4540-9887-4392c920ceaa",
+    "createdAt": 1768620004,
+    "ownerId": "00000000-0000-0000-0000-000000000001",
+    "referenceFolderId": "4678d595-8bbd-e8f6-8409-0f72e4cef4aa",
+    "isFavorite": True,
+    "lastUpdatedAt": 1768620004,
+}
+
+# Sample taken from GET /prod/swatches/list.
+SWATCH_SAMPLE = {
+    "createdAt": 1759866786,
+    "lastUpdatedAt": 1759866786,
+    "name": "Colors",
+    "ownerId": "gemstoneLightsOwned",
+    "swatchesColorData": [
+        {"color": 4278190080, "name": "Warm White"},
+        {"color": 16777215, "name": "Cool White"},
+        {"color": 255, "name": "Red"},
+    ],
+    "id": "5d508896-72f6-f860-d14f-502de3de1900",
+}
+
+# Sample taken from GET /prod/events/settings.
+EVENTS_SETTINGS_SAMPLE = {
+    "categoryIds": ["fun", "special-events"],
+    "schedule": {
+        "onTime": "sunset",
+        "offTime": "22:00",
+        "onOffsetInMinutes": 0,
+        "offOffsetInMinutes": 0,
+    },
+    "homegroupId": "5bf619c5-7d30-45a3-abb5-000000000000",
+    "setupYet": True,
+    "deviceIds": ["h2-1065-6kys"],
+    "createdAt": 1767392199,
+    "allowStaticPatterns": True,
+    "lastUpdatedAt": 1767392199,
+    "allowAnimatedPatterns": True,
+}
+
+# Sample taken from GET /prod/events/listSubscribed.
+SUBSCRIBED_EVENT_SAMPLE = {
+    "eventId": "2026-05-25-usa",
+    "yearMonthHalf": "2026052",
+    "endDate": "2026-05-25",
+    "group": "general",
+    "icon": "usa",
+    "staticPatterns": [
+        {
+            "backgroundColor": 0,
+            "brightness": 255,
+            "name": "USA",
+            "id": "fdebf462-2a4b-765b-f47e-c0add9a1b876",
+            "colors": [255, 16711680, 4294967295],
+            "speed": 128,
+            "referencePatternId": "fdebf462-2a4b-765b-f47e-c0add9a1b876",
+            "animation": "motionless",
+            "direction": 0,
+        }
+    ],
+    "backgroundColor": 4293126911,
+    "categoryName": "USA",
+    "createdAt": 1777324467,
+    "startDate": "2026-05-25",
+    "lastUpdatedAt": 1777324467,
+    "name": "Memorial Day",
+    "categoryId": "usa",
+    "animatedPatterns": [],
+    "homegroupId": "5bf619c5-7d30-45a3-abb5-000000000000",
+    "selectedPattern": {
+        "backgroundColor": 0,
+        "brightness": 255,
+        "name": "USA",
+        "id": "fdebf462-2a4b-765b-f47e-c0add9a1b876",
+        "colors": [255, 16711680, 4294967295],
+        "speed": 128,
+        "referencePatternId": "fdebf462-2a4b-765b-f47e-c0add9a1b876",
+        "animation": "motionless",
+        "direction": 0,
+    },
+}
+
+# Sample taken from GET /prod/announcements.
+ANNOUNCEMENT_SAMPLE = {
+    "endDate": "2025-10-30",
+    "icon": "house_with_garden",
+    "doneActionValue": "https://www.gemstonelights.com/learn/zone-control-video/",
+    "createdAt": 1759891921,
+    "lastUpdatedAt": 1759891921,
+    "doneButtonText": "Learn More",
+    "closeActionValue": "Discover more on the Learn page.",
+    "doneButtonAction": "learn",
+    "closeButtonText": "Close",
+    "roles": ["homegroupOwner", "homegroupManager", "homegroupMember"],
+    "startDate": "2025-10-07",
+    "descriptionText": "Play different patterns on different zones with Zone Control.",
+    "id": "2025-10-07-to-10-30-zone-control",
+    "backgroundColor": 4292734463,
+    "closeButtonAction": "toast",
+    "minimumAppVersion": "0.5.11",
+    "title": "Introducing Zone Control",
+}
+
+# Sample taken from GET /prod/downloads/folders/listGemstoneManaged.
+DOWNLOADABLE_FOLDER_SAMPLE = {
+    "name": "Chinese New Year",
+    "backgroundColor": 4292668927,
+    "allCategoriesKey": "AllCategories",
+    "badge": {"icon": "badge_check", "iconColor": 16747538, "title": "Official"},
+    "id": "0979c8ed-43f3-cce3-eb08-06d103322ee1",
+    "icon": "red_paper_lantern",
+    "folderName": "Chinese New Year",
+    "createdAt": 1716934884,
+    "lastUpdatedAt": 1716934884,
+    "category": "holidays",
+    "downloads": 24,
+    "folderNameLower": "chinese new year",
+    "approvedAt": 1738787271,
+    "uploaderId": "gemstoneLightsOwned",
+}
+
+# Sample taken from GET /prod/downloads/folders/pattern/listGemstoneManaged.
+DOWNLOADABLE_PATTERN_SAMPLE = {
+    "id": "1331a5ca-7f54-697b-44d1-b89a4be79a06",
+    "createdAt": 1719571106,
+    "uploaderId": "gemstoneLightsOwned",
+    "downloads": 0,
+    "lastUpdatedAt": 1719571106,
+    "approvedAt": 1738787271,
+    "category": "holidays",
+    "patternData": {
+        "backgroundColor": 0,
+        "brightness": 255,
+        "name": "1. Happy New Year",
+        "id": "1331a5ca-7f54-697b-44d1-b89a4be79a06",
+        "colors": [255, 87807],
+        "speed": 128,
+        "referencePatternId": "1331a5ca-7f54-697b-44d1-b89a4be79a06",
+        "animation": "chase",
+        "direction": 0,
+    },
+    "downloadableFolderId": "0979c8ed-43f3-cce3-eb08-06d103322ee1",
+    "badge": {"icon": "badge_check", "iconColor": 16747538, "title": "Official"},
+    "patternName": "1. Happy New Year",
 }
 
 
@@ -116,3 +333,112 @@ def test_pattern_to_api_from_constructed() -> None:
     assert payload["brightness"] == 200
     assert payload["backgroundColor"] == 0
     assert payload["referencePatternId"] == "ref"
+
+
+@pytest.mark.unit
+def test_account_profile_decode() -> None:
+    p = AccountProfile.from_api(PROFILE_SAMPLE)
+    assert p.id == "00000000-0000-0000-0000-000000000001"
+    assert p.username == "Tester"
+    assert p.email == "tester@example.com"
+    assert p.email_opt_in is False
+    assert p.cancelled_deletion is False
+    assert p.scanned_device_ids == {"1767392003": "h2-1065-6kys"}
+
+
+@pytest.mark.unit
+def test_homegroup_user_decode() -> None:
+    u = HomeGroupUser.from_api(HOMEGROUP_USER_SAMPLE)
+    assert u.user_id == "00000000-0000-0000-0000-000000000001"
+    assert u.role == "homegroupOwner"
+    assert u.invitation_status == "approved"
+    assert u.homegroup_name == "Test Homegroup"
+    assert u.email == "tester@example.com"
+
+
+@pytest.mark.unit
+def test_folder_decode() -> None:
+    f = Folder.from_api(FOLDER_SAMPLE)
+    assert f.folder_id == "549352c4-7507-4895-abad-a9a46e6af42b"
+    assert f.name == "Vancouver Canucks"
+    assert f.icon == "ice_hockey"
+    assert f.gemstone_managed is False
+    assert f.background_color == 4294960870
+    assert f.hidden is False
+
+
+@pytest.mark.unit
+def test_folder_pattern_decode() -> None:
+    fp = FolderPattern.from_api(FOLDER_PATTERN_SAMPLE)
+    assert fp.id == "5cbddc1d-aea9-4267-8280-188f1ebb15f3"
+    assert fp.folder_id == "16a64251-5d3b-4540-9887-4392c920ceaa"
+    assert fp.is_favorite is True
+    assert fp.gemstone_managed is True
+    assert fp.pattern.name == "Pastel Hearts"
+    assert fp.pattern.speed == 224
+
+
+@pytest.mark.unit
+def test_swatch_decode() -> None:
+    s = Swatch.from_api(SWATCH_SAMPLE)
+    assert s.id == "5d508896-72f6-f860-d14f-502de3de1900"
+    assert s.name == "Colors"
+    assert len(s.colors) == 3
+    assert s.colors[0].name == "Warm White"
+    assert s.colors[0].color == 4278190080
+
+
+@pytest.mark.unit
+def test_events_settings_decode() -> None:
+    es = EventsSettings.from_api(EVENTS_SETTINGS_SAMPLE)
+    assert es.homegroup_id == "5bf619c5-7d30-45a3-abb5-000000000000"
+    assert es.setup_yet is True
+    assert "fun" in es.category_ids
+    assert es.device_ids == ["h2-1065-6kys"]
+    assert es.schedule is not None
+    assert es.schedule.on_time == "sunset"
+    assert es.schedule.off_time == "22:00"
+
+
+@pytest.mark.unit
+def test_subscribed_event_decode() -> None:
+    ev = SubscribedEvent.from_api(SUBSCRIBED_EVENT_SAMPLE)
+    assert ev.event_id == "2026-05-25-usa"
+    assert ev.name == "Memorial Day"
+    assert ev.category_id == "usa"
+    assert ev.start_date == "2026-05-25"
+    assert len(ev.static_patterns) == 1
+    assert ev.static_patterns[0].name == "USA"
+    assert ev.selected_pattern is not None
+    assert ev.selected_pattern.id == "fdebf462-2a4b-765b-f47e-c0add9a1b876"
+
+
+@pytest.mark.unit
+def test_announcement_decode() -> None:
+    a = Announcement.from_api(ANNOUNCEMENT_SAMPLE)
+    assert a.id == "2025-10-07-to-10-30-zone-control"
+    assert a.title == "Introducing Zone Control"
+    assert a.icon == "house_with_garden"
+    assert a.minimum_app_version == "0.5.11"
+    assert "homegroupOwner" in a.roles
+
+
+@pytest.mark.unit
+def test_downloadable_folder_decode() -> None:
+    df = DownloadableFolder.from_api(DOWNLOADABLE_FOLDER_SAMPLE)
+    assert df.id == "0979c8ed-43f3-cce3-eb08-06d103322ee1"
+    assert df.name == "Chinese New Year"
+    assert df.category == "holidays"
+    assert df.downloads == 24
+    assert df.badge is not None
+    assert df.badge["title"] == "Official"
+
+
+@pytest.mark.unit
+def test_downloadable_pattern_decode() -> None:
+    dp = DownloadablePattern.from_api(DOWNLOADABLE_PATTERN_SAMPLE)
+    assert dp.id == "1331a5ca-7f54-697b-44d1-b89a4be79a06"
+    assert dp.pattern_name == "1. Happy New Year"
+    assert dp.category == "holidays"
+    assert dp.pattern.animation == "chase"
+    assert dp.downloadable_folder_id == "0979c8ed-43f3-cce3-eb08-06d103322ee1"
