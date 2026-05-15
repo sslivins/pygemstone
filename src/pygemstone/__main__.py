@@ -7,6 +7,8 @@ Usage:
     python -m pygemstone state <DSN>  # print currentlyPlaying for a device
     python -m pygemstone on <DSN>     # turn a device on
     python -m pygemstone off <DSN>    # turn a device off
+    python -m pygemstone introspect   # dump the AppSync GraphQL schema
+                                      # (json on stdout)
 
 Credentials come from ``$GEMSTONE_EMAIL`` and ``$GEMSTONE_PASSWORD``
 or, if absent, a ``.env`` file in the current directory.
@@ -15,6 +17,7 @@ or, if absent, a ``.env`` file in the current directory.
 from __future__ import annotations
 
 import asyncio
+import json
 import os
 import sys
 
@@ -73,6 +76,17 @@ async def _run(argv: list[str]) -> int:
         if cmd in ("on", "off") and rest:
             tx = await gc.set_on_state(rest[0], cmd == "on")
             print(f"OK tx={tx}")
+            return 0
+        if cmd == "introspect":
+            schema = await gc.introspect_schema()
+            if not schema:
+                print(
+                    "Introspection returned no data — the operator may have "
+                    "disabled it on this AppSync API.",
+                    file=sys.stderr,
+                )
+                return 1
+            print(json.dumps(schema, indent=2))
             return 0
     print(__doc__, file=sys.stderr)
     return 2

@@ -14,6 +14,7 @@ from typing import Any, AsyncIterator, Self
 
 import aiohttp
 
+from .appsync import AppSyncClient
 from .auth import GemstoneAuth
 from .const import DEFAULT_TIMEOUT, REST_API_BASE, USER_AGENT
 from .device import Device
@@ -67,6 +68,7 @@ class GemstoneClient:
         self._api_base = api_base.rstrip("/")
         self._session = session
         self._owns_session = session is None
+        self._appsync: AppSyncClient | None = None
 
     async def __aenter__(self) -> Self:
         if self._session is None:
@@ -95,6 +97,49 @@ class GemstoneClient:
                 "or constructed with an explicit aiohttp.ClientSession."
             )
         return self._session
+
+    @property
+    def appsync(self) -> AppSyncClient:
+        """Lazy :class:`AppSyncClient` sharing this client's auth + session."""
+        if self._appsync is None:
+            self._appsync = AppSyncClient(self._auth, self.session)
+        return self._appsync
+
+    async def graphql(
+        self,
+        query: str,
+        *,
+        variables: dict[str, Any] | None = None,
+        operation_name: str | None = None,
+    ) -> dict[str, Any]:
+        """Run a GraphQL query / mutation against the AppSync endpoint."""
+        return await self.appsync.query(
+            query, variables=variables, operation_name=operation_name
+        )
+
+    async def introspect_schema(self) -> dict[str, Any]:
+        """Dump the AppSync schema via standard GraphQL introspection."""
+        return await self.appsync.introspect()
+
+    def subscribe(
+        self,
+        query: str,
+        *,
+        variables: dict[str, Any] | None = None,
+        operation_name: str | None = None,
+    ) -> Any:
+        """Open a real-time AppSync subscription.
+
+        Returns an async context manager yielding an async iterator of
+        event payloads (see :meth:`AppSyncClient.subscribe`)::
+
+            async with gc.subscribe("subscription { ... }") as events:
+                async for event in events:
+                    print(event)
+        """
+        return self.appsync.subscribe(
+            query, variables=variables, operation_name=operation_name
+        )
 
     async def login(self) -> None:
         await self._auth.login()

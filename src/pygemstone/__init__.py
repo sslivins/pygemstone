@@ -1,5 +1,6 @@
 """pygemstone — Python client for Gemstone Lights permanent Christmas lights."""
 
+from .appsync import AppSyncClient
 from .auth import GemstoneAuth, TokenSet
 from .client import GemstoneClient
 from .device import Device
@@ -35,6 +36,7 @@ __version__ = "0.0.1"
 __all__ = [
     "GemstoneClient",
     "GemstoneAuth",
+    "AppSyncClient",
     "TokenSet",
     "Device",
     "DeviceRecord",
