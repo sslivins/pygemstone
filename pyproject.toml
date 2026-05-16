@@ -6,7 +6,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "pygemstone"
-version = "0.0.1"
+version = "0.0.2"
 description = "Python library for Gemstone Lights permanent-Christmas-lights controllers (AWS-backed cloud API)"
 readme = "README.md"
 license = { text = "MIT" }
