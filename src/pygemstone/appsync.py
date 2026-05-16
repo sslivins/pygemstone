@@ -1,8 +1,30 @@
 """AppSync GraphQL HTTP + real-time WebSocket transport.
 
-The Gemstone Lights cloud uses an AWS AppSync GraphQL endpoint for any
-state that the official app receives via push (e.g. "another phone just
-turned the lights on"). This module wraps both surfaces:
+.. warning::
+
+    **Experimental — parked.** Two mitmproxy WireGuard captures of the
+    official iOS app (``com.gemstone.lights`` 0.6.03, amplify-flutter
+    2.6.5) show that the app **never opens a GraphQL connection** —
+    even across logout/login, device control, and live state changes.
+    All real-time state propagation observed in the wild happens via
+    REST polling of ``/deviceControl/currentlyPlaying``. The only
+    AppSync traffic seen is two unauthenticated ``GET /ping``
+    healthchecks per session.
+
+    Consequently the AppSync auth scheme used by the AppSync API
+    (if any) is unknown. All four Cognito JWT auth modes
+    (``Authorization: <id_token>``, ``Authorization: Bearer <id_token>``,
+    and the same with the access token) return HTTP 401
+    ``UnauthorizedException``. Cognito Identity Pool (AWS_IAM) is
+    ruled out — no ``cognito-identity.us-west-2.amazonaws.com`` traffic
+    was seen during a fresh login.
+
+    This module is kept as scaffolding (transport, protocol, tests) so
+    if Gemstone ever flips real-time on, we can finish wiring it once
+    a successful subscription handshake is captured.
+
+The Gemstone Lights cloud exposes an AWS AppSync GraphQL endpoint for
+push-based state propagation. This module wraps both surfaces:
 
 * :meth:`AppSyncClient.query` — POST GraphQL queries / mutations over
   HTTPS to the regular ``appsync-api`` host.
@@ -22,11 +44,6 @@ for AppSync real-time subscriptions:
        events; ``ka`` keepalives are ignored; ``complete`` ends the
        subscription.
     5. Send ``{"id":<uuid>,"type":"stop"}`` to unsubscribe.
-
-We do not yet know the concrete subscription names — those live in the
-AppSync schema and weren't covered in the initial capture. Use
-:meth:`AppSyncClient.introspect` (or the ``python -m pygemstone
-introspect`` CLI command) once authenticated to dump the schema.
 """
 
 from __future__ import annotations

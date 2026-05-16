@@ -481,3 +481,85 @@ async def test_announcements(gc: GemstoneClient) -> None:
         )
         anns = await gc.announcements()
     assert anns[0].title == "Hello"
+
+
+@pytest.mark.rest
+async def test_timers_by_homegroup(gc: GemstoneClient) -> None:
+    with aioresponses() as m:
+        m.get(
+            f"{REST_API_BASE}/timer/listByHomegroup?homegroupId=hg",
+            payload={
+                "data": [
+                    {
+                        "id": "t-1",
+                        "name": "Front",
+                        "homegroupId": "hg",
+                        "assigneeId": "h2-test",
+                        "enabled": True,
+                        "timerData": {
+                            "timerType": "daily",
+                            "onTime": "sunset",
+                            "offTime": "23:00",
+                        },
+                        "timerPatternData": {
+                            "pattern": {
+                                "id": "p-1",
+                                "name": "Red",
+                                "colors": [255],
+                                "animation": "motionless",
+                                "brightness": 255,
+                                "speed": 128,
+                                "direction": 0,
+                                "backgroundColor": 0,
+                                "referencePatternId": "p-1",
+                            }
+                        },
+                        "txId": "tx-1",
+                        "createdAt": 1700000000,
+                        "lastUpdatedAt": 1700000001,
+                    }
+                ],
+                "message": "Successful.",
+                "statusCode": 200,
+            },
+        )
+        timers = await gc.timers_by_homegroup("hg")
+    assert len(timers) == 1
+    assert timers[0].name == "Front"
+    assert timers[0].timer_data is not None
+    assert timers[0].timer_data.on_time == "sunset"
+    assert timers[0].pattern is not None
+    assert timers[0].pattern.name == "Red"
+
+
+@pytest.mark.rest
+async def test_events_categories(gc: GemstoneClient) -> None:
+    with aioresponses() as m:
+        m.get(
+            f"{REST_API_BASE}/events/listCategories",
+            payload={
+                "data": [
+                    {
+                        "id": "christmas",
+                        "name": "Christmas",
+                        "description": "Festive patterns.",
+                        "group": "general",
+                        "icon": "christmas_tree",
+                        "backgroundColor": 4294115301,
+                        "suggested": True,
+                    },
+                    {
+                        "id": "anaheim-ducks",
+                        "name": "Anaheim Ducks",
+                        "description": "Anaheim Ducks in NHL",
+                        "group": "nhl",
+                    },
+                ],
+                "statusCode": 200,
+            },
+        )
+        cats = await gc.events_categories()
+    assert len(cats) == 2
+    assert cats[0].suggested is True
+    assert cats[1].icon is None
+    assert cats[1].background_color is None

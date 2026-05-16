@@ -35,14 +35,28 @@ is essentially:
 - **Autopilot / scheduling:**
   - `events_settings(hg)` — daily on/off window + enabled categories
   - `subscribed_events(hg, page=N)` — date-bound holiday/event subscriptions
+  - `events_categories()` — full catalogue of holiday / sport / event categories
+- **Timers:**
+  - `timers_by_homegroup(hg)` — scheduled on/off timers with optional pattern
 - **Misc:**
   - `announcements()` — in-app announcements
 
+## A note on AppSync (real-time)
+
+The library ships an AppSync GraphQL HTTP + WebSocket transport
+(`pygemstone.appsync.AppSyncClient`), but **two iOS-app captures show
+the official app never opens a GraphQL connection** — only
+unauthenticated `/ping` healthchecks. State updates propagate via REST
+polling of `/deviceControl/currentlyPlaying`. The AppSync auth scheme
+is therefore unknown and the transport is currently un-runnable
+against the real backend; it's kept as scaffolding for if Gemstone
+ever flips real-time on.
+
 ## Planned
 
-- AppSync real-time subscriptions for live state push
 - Cognito global sign-out (currently only clears local tokens)
 - Schedule/event subscribe + unsubscribe mutations
+- Timer create / update / delete (only list is currently captured)
 
 ## Installation
 

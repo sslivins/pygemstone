@@ -11,6 +11,7 @@ from pygemstone.models import (
     DeviceState,
     DownloadableFolder,
     DownloadablePattern,
+    EventCategory,
     EventsSettings,
     Folder,
     FolderPattern,
@@ -19,6 +20,7 @@ from pygemstone.models import (
     Pattern,
     SubscribedEvent,
     Swatch,
+    Timer,
 )
 
 
@@ -265,6 +267,51 @@ DOWNLOADABLE_PATTERN_SAMPLE = {
     "patternName": "1. Happy New Year",
 }
 
+# Sample taken from GET /prod/timer/listByHomegroup.
+TIMER_SAMPLE = {
+    "homegroupId": "5bf619c5-7d30-45a3-abb5-000000000000",
+    "enabled": True,
+    "lastUpdatedAt": 1777088648,
+    "name": "AlphaTauri 2",
+    "assigneeId": "h2-1065-6kys",
+    "createdAt": 1767417846,
+    "id": "38ec682f-e7c7-403e-87bc-ea4ec4003a46",
+    "timerData": {"timerType": "daily", "onTime": "sunset", "offTime": "23:00"},
+    "txId": "d6d6c9c2-4bb8-4203-b4f9-6d557f5166e6",
+    "timerPatternData": {
+        "pattern": {
+            "backgroundColor": 0,
+            "brightness": 255,
+            "name": "Cinco de Mayo",
+            "id": "2655d9b7-da0c-4f7e-95d9-8b96e55f643d",
+            "referencePatternId": "40318d71-3d8c-97f4-d674-7d5b9ccb3b31",
+            "speed": 128,
+            "colors": [65280, 16777215, 255, 65280, 16777215, 255],
+            "animation": "motionless",
+            "direction": 0,
+        }
+    },
+}
+
+# Sample taken from GET /prod/events/listCategories.
+EVENT_CATEGORY_GENERAL_SAMPLE = {
+    "id": "christmas",
+    "description": "Enjoy a new festive pattern every day from December 1 to 25.",
+    "name": "Christmas",
+    "group": "general",
+    "icon": "christmas_tree",
+    "backgroundColor": 4294115301,
+    "suggested": True,
+}
+
+# A team-level category has no icon / backgroundColor.
+EVENT_CATEGORY_NHL_SAMPLE = {
+    "id": "anaheim-ducks",
+    "description": "Anaheim Ducks in NHL",
+    "name": "Anaheim Ducks",
+    "group": "nhl",
+}
+
 
 @pytest.mark.unit
 def test_homegroup_decode() -> None:
@@ -442,3 +489,48 @@ def test_downloadable_pattern_decode() -> None:
     assert dp.category == "holidays"
     assert dp.pattern.animation == "chase"
     assert dp.downloadable_folder_id == "0979c8ed-43f3-cce3-eb08-06d103322ee1"
+
+
+@pytest.mark.unit
+def test_timer_decode() -> None:
+    t = Timer.from_api(TIMER_SAMPLE)
+    assert t.id == "38ec682f-e7c7-403e-87bc-ea4ec4003a46"
+    assert t.name == "AlphaTauri 2"
+    assert t.assignee_id == "h2-1065-6kys"
+    assert t.enabled is True
+    assert t.timer_data is not None
+    assert t.timer_data.timer_type == "daily"
+    assert t.timer_data.on_time == "sunset"
+    assert t.timer_data.off_time == "23:00"
+    assert t.pattern is not None
+    assert t.pattern.name == "Cinco de Mayo"
+    assert t.tx_id == "d6d6c9c2-4bb8-4203-b4f9-6d557f5166e6"
+
+
+@pytest.mark.unit
+def test_timer_decode_without_pattern() -> None:
+    payload = {**TIMER_SAMPLE, "timerPatternData": {}}
+    t = Timer.from_api(payload)
+    assert t.pattern is None
+    assert t.timer_data is not None
+
+
+@pytest.mark.unit
+def test_event_category_general_decode() -> None:
+    c = EventCategory.from_api(EVENT_CATEGORY_GENERAL_SAMPLE)
+    assert c.id == "christmas"
+    assert c.name == "Christmas"
+    assert c.group == "general"
+    assert c.icon == "christmas_tree"
+    assert c.background_color == 4294115301
+    assert c.suggested is True
+
+
+@pytest.mark.unit
+def test_event_category_team_decode() -> None:
+    c = EventCategory.from_api(EVENT_CATEGORY_NHL_SAMPLE)
+    assert c.id == "anaheim-ducks"
+    assert c.group == "nhl"
+    assert c.icon is None
+    assert c.background_color is None
+    assert c.suggested is False

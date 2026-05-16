@@ -29,6 +29,7 @@ from .models import (
     DeviceState,
     DownloadableFolder,
     DownloadablePattern,
+    EventCategory,
     EventsSettings,
     Folder,
     FolderPattern,
@@ -37,6 +38,7 @@ from .models import (
     Pattern,
     SubscribedEvent,
     Swatch,
+    Timer,
 )
 
 logger = logging.getLogger(__name__)
@@ -313,6 +315,26 @@ class GemstoneClient:
             params={"homegroupId": homegroup_id, "page": str(page)},
         )
         return [SubscribedEvent.from_api(e) for e in payload.get("data", []) or []]
+
+    async def events_categories(self) -> list[EventCategory]:
+        """Full catalogue of autopilot event categories.
+
+        Categories are grouped (``general``, ``nhl``, etc.) and feed the
+        category picker in ``events_settings``.
+        """
+        payload = await self._get("/events/listCategories")
+        return [EventCategory.from_api(c) for c in payload.get("data", []) or []]
+
+    # ------------------------------------------------------------------
+    # Timers
+    # ------------------------------------------------------------------
+
+    async def timers_by_homegroup(self, homegroup_id: str) -> list[Timer]:
+        """List the home group's scheduled on/off timers."""
+        payload = await self._get(
+            "/timer/listByHomegroup", params={"homegroupId": homegroup_id}
+        )
+        return [Timer.from_api(t) for t in payload.get("data", []) or []]
 
     # ------------------------------------------------------------------
     # Misc

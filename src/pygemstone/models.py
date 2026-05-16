@@ -511,6 +511,96 @@ class SubscribedEvent:
 
 
 @dataclass(slots=True)
+class TimerData:
+    """The schedule portion of a :class:`Timer` (``timerData``)."""
+
+    timer_type: str
+    on_time: str
+    off_time: str
+
+    @classmethod
+    def from_api(cls, payload: dict[str, Any]) -> "TimerData":
+        return cls(
+            timer_type=payload.get("timerType", ""),
+            on_time=payload.get("onTime", ""),
+            off_time=payload.get("offTime", ""),
+        )
+
+
+@dataclass(slots=True)
+class Timer:
+    """A scheduled on/off timer for a device or device group.
+
+    From ``/timer/listByHomegroup``. Each timer binds a recurring
+    on/off window (``timer_data``) plus an optional pattern that
+    should play when it turns on (``pattern``).
+    """
+
+    id: str
+    name: str
+    homegroup_id: str
+    assignee_id: str
+    enabled: bool
+    timer_data: TimerData | None = None
+    pattern: Pattern | None = None
+    tx_id: str = ""
+    created_at: datetime | None = None
+    last_updated_at: datetime | None = None
+    raw: dict[str, Any] = field(default_factory=dict)
+
+    @classmethod
+    def from_api(cls, payload: dict[str, Any]) -> "Timer":
+        td = payload.get("timerData")
+        tpd = (payload.get("timerPatternData") or {}).get("pattern")
+        return cls(
+            id=payload.get("id", ""),
+            name=payload.get("name", ""),
+            homegroup_id=payload.get("homegroupId", ""),
+            assignee_id=payload.get("assigneeId", ""),
+            enabled=bool(payload.get("enabled", False)),
+            timer_data=TimerData.from_api(td) if td else None,
+            pattern=Pattern.from_api(tpd) if tpd else None,
+            tx_id=payload.get("txId", ""),
+            created_at=_ts(payload.get("createdAt")),
+            last_updated_at=_ts(payload.get("lastUpdatedAt")),
+            raw=payload,
+        )
+
+
+@dataclass(slots=True)
+class EventCategory:
+    """A holiday / event category that can power autopilot subscriptions.
+
+    From ``/events/listCategories``. Categories are grouped (``general``,
+    ``nhl``, etc.); team-level categories often lack ``icon`` and
+    ``background_color``.
+    """
+
+    id: str
+    name: str
+    description: str
+    group: str
+    icon: str | None = None
+    background_color: int | None = None
+    suggested: bool = False
+    raw: dict[str, Any] = field(default_factory=dict)
+
+    @classmethod
+    def from_api(cls, payload: dict[str, Any]) -> "EventCategory":
+        bg = payload.get("backgroundColor")
+        return cls(
+            id=payload.get("id", ""),
+            name=payload.get("name", ""),
+            description=payload.get("description", ""),
+            group=payload.get("group", ""),
+            icon=payload.get("icon"),
+            background_color=int(bg) if bg is not None else None,
+            suggested=bool(payload.get("suggested", False)),
+            raw=payload,
+        )
+
+
+@dataclass(slots=True)
 class Announcement:
     """An in-app announcement (``/announcements``)."""
 

@@ -19,6 +19,7 @@ from .models import (
     DeviceState,
     DownloadableFolder,
     DownloadablePattern,
+    EventCategory,
     EventsScheduleWindow,
     EventsSettings,
     Folder,
@@ -29,6 +30,8 @@ from .models import (
     SubscribedEvent,
     Swatch,
     SwatchColor,
+    Timer,
+    TimerData,
 )
 
 __version__ = "0.0.1"
@@ -47,6 +50,7 @@ __all__ = [
     "Announcement",
     "DownloadableFolder",
     "DownloadablePattern",
+    "EventCategory",
     "EventsScheduleWindow",
     "EventsSettings",
     "Folder",
@@ -55,6 +59,8 @@ __all__ = [
     "SubscribedEvent",
     "Swatch",
     "SwatchColor",
+    "Timer",
+    "TimerData",
     "GemstoneError",
     "GemstoneAuthError",
     "GemstoneApiError",
