@@ -147,7 +147,12 @@ class GemstoneAuth:
                 user_pool_region=self._region,
                 refresh_token=refresh_token,
             )
-            cog.check_token()  # triggers refresh if needed
+            # ``check_token`` would refuse without an access_token to inspect
+            # ("Access Token Required to Check Token"); we know we want to
+            # refresh so we hit ``renew_access_token`` directly. It uses the
+            # refresh_token via REFRESH_TOKEN_AUTH and replaces access/id
+            # tokens on the Cognito instance.
+            cog.renew_access_token()
         except Exception as exc:  # noqa: BLE001
             raise GemstoneAuthError(f"Token refresh failed: {exc}") from exc
 
