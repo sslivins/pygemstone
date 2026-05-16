@@ -1,5 +1,9 @@
 # pygemstone
 
+[![PyPI](https://img.shields.io/pypi/v/pygemstone.svg)](https://pypi.org/project/pygemstone/)
+[![Python](https://img.shields.io/pypi/pyversions/pygemstone.svg)](https://pypi.org/project/pygemstone/)
+[![License](https://img.shields.io/pypi/l/pygemstone.svg)](https://github.com/sslivins/pygemstone/blob/main/LICENSE)
+
 Standalone Python library for **Gemstone Lights** permanent-Christmas-light
 controllers.
 
