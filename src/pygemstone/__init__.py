@@ -3,6 +3,7 @@
 from .appsync import AppSyncClient
 from .auth import GemstoneAuth, TokenSet
 from .client import GemstoneClient
+from .color import color_to_hex, pack_color, unpack_color
 from .device import Device
 from .errors import (
     GemstoneApiError,
@@ -67,5 +68,8 @@ __all__ = [
     "GemstoneConnectionError",
     "GemstoneNotFoundError",
     "GemstoneValueError",
+    "color_to_hex",
+    "pack_color",
+    "unpack_color",
     "__version__",
 ]
