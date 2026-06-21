@@ -1,8 +1,13 @@
 """Typed dataclasses for the Gemstone API response surface.
 
 These mirror the JSON shapes returned by the cloud, with a small
-amount of normalisation (timestamps → ``datetime``, ARGB ints → kept
-as raw ints since they're convenient to push back unchanged).
+amount of normalisation (timestamps → ``datetime``, colours kept as
+raw packed ints since they're convenient to push back unchanged).
+
+Colours use Gemstone's little-endian, red-in-the-low-byte layout
+(``0xWWBBGGRR``) — see :mod:`pygemstone.color` for ``unpack_color`` /
+``pack_color`` / ``color_to_hex`` helpers rather than decoding the
+ints by hand.
 """
 
 from __future__ import annotations
