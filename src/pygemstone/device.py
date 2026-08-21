@@ -11,6 +11,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any
 
 from .models import Device as DeviceRecord, DeviceState, Pattern
+from .models import ArchitecturalDesign
 
 if TYPE_CHECKING:
     from .client import GemstoneClient
@@ -61,6 +62,16 @@ class Device:
 
     async def play_pattern(self, pattern: Pattern) -> str:
         return await self._client.play_pattern(self.id, pattern)
+
+    async def architectural_designs(self) -> list[ArchitecturalDesign]:
+        """This device's saved "Custom Designs" (Quick Access)."""
+        return await self._client.architectural_designs(self.id)
+
+    async def apply_architectural_design(
+        self, design: ArchitecturalDesign
+    ) -> ArchitecturalDesign:
+        """Re-save (and thereby apply) one of this device's custom designs."""
+        return await self._client.save_architectural_design(design)
 
     def __repr__(self) -> str:
         return f"<Device id={self.id!r} name={self.name!r}>"

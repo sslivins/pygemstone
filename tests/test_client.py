@@ -11,7 +11,7 @@ from pygemstone.auth import TokenSet
 from pygemstone.client import GemstoneClient
 from pygemstone.const import REST_API_BASE
 from pygemstone.errors import GemstoneApiError, GemstoneAuthError
-from pygemstone.models import Pattern
+from pygemstone.models import ArchitecturalDesign, Pattern, StaticColorSegment
 
 
 @pytest.fixture
@@ -396,6 +396,71 @@ async def test_downloadable_patterns(gc: GemstoneClient) -> None:
         )
         patterns = await gc.downloadable_patterns(page=3)
     assert patterns[0].pattern.animation == "chase"
+
+
+@pytest.mark.rest
+async def test_architectural_designs(gc: GemstoneClient) -> None:
+    with aioresponses() as m:
+        m.get(
+            f"{REST_API_BASE}/deviceControl/architectural/list?deviceId=h2-test",
+            payload={
+                "data": [
+                    {
+                        "id": "ad-1",
+                        "deviceId": "h2-test",
+                        "name": "Front Door",
+                        "brightness": 255,
+                        "staticColors": [
+                            {"lights": [300, 300, 307], "color": 4294967295}
+                        ],
+                        "isFavorite": False,
+                        "createdAt": 1700000000,
+                        "lastUpdatedAt": 1700000001,
+                    }
+                ],
+                "statusCode": 200,
+            },
+        )
+        designs = await gc.architectural_designs("h2-test")
+    assert len(designs) == 1
+    assert designs[0].id == "ad-1"
+    assert designs[0].name == "Front Door"
+    assert designs[0].static_colors[0].color == 4294967295
+
+
+@pytest.mark.rest
+async def test_save_architectural_design(gc: GemstoneClient) -> None:
+    design = ArchitecturalDesign(
+        id="ad-1",
+        device_id="h2-test",
+        name="Front Door",
+        brightness=255,
+        static_colors=[StaticColorSegment(lights=[300, 300, 307], color=4294967295)],
+        is_favorite=False,
+    )
+    with aioresponses() as m:
+        m.put(
+            f"{REST_API_BASE}/deviceControl/architectural/save?deviceId=h2-test",
+            payload={
+                "data": {
+                    "id": "ad-1",
+                    "deviceId": "h2-test",
+                    "name": "Front Door",
+                    "brightness": 255,
+                    "staticColors": [
+                        {"lights": [300, 300, 307], "color": 4294967295}
+                    ],
+                    "isFavorite": False,
+                    "createdAt": 1700000005,
+                    "lastUpdatedAt": 1700000005,
+                },
+                "statusCode": 200,
+            },
+        )
+        saved = await gc.save_architectural_design(design)
+    assert saved.id == "ad-1"
+    req = next(iter(m.requests.values()))[0]
+    assert req.kwargs["json"]["name"] == "Front Door"
 
 
 @pytest.mark.rest

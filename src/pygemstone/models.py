@@ -289,6 +289,77 @@ class FolderPattern:
 
 
 @dataclass(slots=True)
+class StaticColorSegment:
+    """One coloured light segment within an :class:`ArchitecturalDesign`.
+
+    ``lights`` is the raw per-segment light-index/count payload sent by
+    the app; we don't yet know its exact semantics so it's kept as-is.
+    """
+
+    lights: list[int] = field(default_factory=list)
+    color: int = 0
+
+    @classmethod
+    def from_api(cls, payload: dict[str, Any]) -> "StaticColorSegment":
+        return cls(
+            lights=list(payload.get("lights", []) or []),
+            color=int(payload.get("color", 0)),
+        )
+
+    def to_api(self) -> dict[str, Any]:
+        return {"lights": self.lights, "color": self.color}
+
+
+@dataclass(slots=True)
+class ArchitecturalDesign:
+    """A saved "Quick Access" / "Custom Design" look for one device.
+
+    Unlike folder patterns, these are stored per-device (``deviceId``)
+    rather than per-homegroup, via ``/deviceControl/architectural/list``
+    and ``/deviceControl/architectural/save``. Re-``save``-ing a design
+    with its existing ``id`` both updates and immediately applies it.
+    """
+
+    id: str
+    device_id: str
+    name: str
+    brightness: int = 255
+    static_colors: list[StaticColorSegment] = field(default_factory=list)
+    is_favorite: bool = False
+    created_at: datetime | None = None
+    last_updated_at: datetime | None = None
+    raw: dict[str, Any] = field(default_factory=dict)
+
+    @classmethod
+    def from_api(cls, payload: dict[str, Any]) -> "ArchitecturalDesign":
+        return cls(
+            id=payload.get("id", ""),
+            device_id=payload.get("deviceId", ""),
+            name=payload.get("name", ""),
+            brightness=int(payload.get("brightness", 255)),
+            static_colors=[
+                StaticColorSegment.from_api(sc)
+                for sc in payload.get("staticColors", []) or []
+            ],
+            is_favorite=bool(payload.get("isFavorite", False)),
+            created_at=_ts(payload.get("createdAt")),
+            last_updated_at=_ts(payload.get("lastUpdatedAt")),
+            raw=payload,
+        )
+
+    def to_api(self) -> dict[str, Any]:
+        """Render back to the wire format expected by ``architectural/save``."""
+        return {
+            "id": self.id,
+            "deviceId": self.device_id,
+            "name": self.name,
+            "brightness": self.brightness,
+            "staticColors": [sc.to_api() for sc in self.static_colors],
+            "isFavorite": self.is_favorite,
+        }
+
+
+@dataclass(slots=True)
 class DownloadableFolder:
     """A Gemstone-curated folder available for download.
 
