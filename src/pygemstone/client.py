@@ -8,9 +8,10 @@ capture (:mod:`pygemstone.const`).
 from __future__ import annotations
 
 import logging
+from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from types import TracebackType
-from typing import Any, AsyncIterator, Self
+from typing import Any, Self
 
 import aiohttp
 
@@ -26,6 +27,7 @@ from .errors import (
 from .models import (
     AccountProfile,
     Announcement,
+    ArchitecturalDesign,
     DeviceState,
     DownloadableFolder,
     DownloadablePattern,
@@ -296,6 +298,39 @@ class GemstoneClient:
         ]
 
     # ------------------------------------------------------------------
+    # Architectural designs ("Custom Designs" / "Quick Access")
+    # ------------------------------------------------------------------
+
+    async def architectural_designs(self, device_id: str) -> list[ArchitecturalDesign]:
+        """List a single device's saved "Custom Designs" (Quick Access).
+
+        Unlike folder patterns these are per-device, not per-homegroup —
+        discovered via a live capture since they're not returned by
+        ``/folders/list`` or ``/folders/pattern/list``.
+        """
+        payload = await self._get(
+            "/deviceControl/architectural/list", params={"deviceId": device_id}
+        )
+        return [
+            ArchitecturalDesign.from_api(d) for d in payload.get("data", []) or []
+        ]
+
+    async def save_architectural_design(
+        self, design: ArchitecturalDesign
+    ) -> ArchitecturalDesign:
+        """Create or update (and immediately apply) a device's custom design.
+
+        Pass a design with a blank ``id`` to create a new one, or an
+        existing ``id`` to update + apply it in place.
+        """
+        payload = await self._put(
+            "/deviceControl/architectural/save",
+            params={"deviceId": design.device_id},
+            json_body=design.to_api(),
+        )
+        return ArchitecturalDesign.from_api(payload.get("data", {}) or {})
+
+    # ------------------------------------------------------------------
     # Autopilot / scheduling
     # ------------------------------------------------------------------
 
@@ -409,7 +444,7 @@ class GemstoneClient:
             return {}
         try:
             data: dict[str, Any] = await resp.json(content_type=None)
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:
             raise GemstoneApiError(
                 resp.status, text, message=f"Invalid JSON: {exc}"
             ) from exc

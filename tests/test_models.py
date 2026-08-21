@@ -7,6 +7,7 @@ import pytest
 from pygemstone.models import (
     AccountProfile,
     Announcement,
+    ArchitecturalDesign,
     Device,
     DeviceState,
     DownloadableFolder,
@@ -22,7 +23,6 @@ from pygemstone.models import (
     Swatch,
     Timer,
 )
-
 
 # Sample taken from GET /prod/homegroup/list, sensitive IDs scrubbed.
 HOMEGROUP_SAMPLE = {
@@ -423,6 +423,44 @@ def test_folder_pattern_decode() -> None:
     assert fp.gemstone_managed is True
     assert fp.pattern.name == "Pastel Hearts"
     assert fp.pattern.speed == 224
+
+
+# Sample taken from GET /prod/deviceControl/architectural/list, IDs scrubbed.
+ARCHITECTURAL_DESIGN_SAMPLE = {
+    "staticColors": [
+        {"lights": [300, 300, 307], "color": 4294967295},
+    ],
+    "deviceId": "h2-1074-y3w9",
+    "brightness": 255,
+    "createdAt": 1787282131,
+    "lastUpdatedAt": 1787282131,
+    "name": "Front Door",
+    "isFavorite": False,
+    "id": "b2c2bb88-a26e-4eb5-aae9-d6443987479f",
+}
+
+
+@pytest.mark.unit
+def test_architectural_design_decode() -> None:
+    ad = ArchitecturalDesign.from_api(ARCHITECTURAL_DESIGN_SAMPLE)
+    assert ad.id == "b2c2bb88-a26e-4eb5-aae9-d6443987479f"
+    assert ad.device_id == "h2-1074-y3w9"
+    assert ad.name == "Front Door"
+    assert ad.brightness == 255
+    assert ad.is_favorite is False
+    assert len(ad.static_colors) == 1
+    assert ad.static_colors[0].color == 4294967295
+    assert ad.static_colors[0].lights == [300, 300, 307]
+
+
+@pytest.mark.unit
+def test_architectural_design_round_trip() -> None:
+    ad = ArchitecturalDesign.from_api(ARCHITECTURAL_DESIGN_SAMPLE)
+    wire = ad.to_api()
+    assert wire["id"] == ARCHITECTURAL_DESIGN_SAMPLE["id"]
+    assert wire["deviceId"] == ARCHITECTURAL_DESIGN_SAMPLE["deviceId"]
+    assert wire["name"] == "Front Door"
+    assert wire["staticColors"] == [{"lights": [300, 300, 307], "color": 4294967295}]
 
 
 @pytest.mark.unit
