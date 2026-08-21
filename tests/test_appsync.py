@@ -24,7 +24,6 @@ from pygemstone.client import GemstoneClient
 from pygemstone.const import APPSYNC_API_URL
 from pygemstone.errors import GemstoneApiError
 
-
 # ---------------------------------------------------------------------------
 # WS handshake helpers (pure unit tests)
 # ---------------------------------------------------------------------------
@@ -58,7 +57,7 @@ class FakeWS:
             raise RuntimeError("FakeWS inbox exhausted")
         return self._inbox.pop(0)
 
-    def __aiter__(self) -> "FakeWS":
+    def __aiter__(self) -> FakeWS:
         return self
 
     async def __anext__(self) -> _FakeMsg:

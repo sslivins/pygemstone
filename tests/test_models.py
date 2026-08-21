@@ -24,7 +24,6 @@ from pygemstone.models import (
     Timer,
 )
 
-
 # Sample taken from GET /prod/homegroup/list, sensitive IDs scrubbed.
 HOMEGROUP_SAMPLE = {
     "role": "homegroupOwner",

@@ -8,9 +8,10 @@ capture (:mod:`pygemstone.const`).
 from __future__ import annotations
 
 import logging
+from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from types import TracebackType
-from typing import Any, AsyncIterator, Self
+from typing import Any, Self
 
 import aiohttp
 
@@ -443,7 +444,7 @@ class GemstoneClient:
             return {}
         try:
             data: dict[str, Any] = await resp.json(content_type=None)
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:
             raise GemstoneApiError(
                 resp.status, text, message=f"Invalid JSON: {exc}"
             ) from exc

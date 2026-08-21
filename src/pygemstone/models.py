@@ -13,7 +13,7 @@ ints by hand.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 
@@ -22,7 +22,7 @@ def _ts(value: Any) -> datetime | None:
     if value is None:
         return None
     try:
-        return datetime.fromtimestamp(int(value), tz=timezone.utc)
+        return datetime.fromtimestamp(int(value), tz=UTC)
     except (TypeError, ValueError):
         return None
 
@@ -39,7 +39,7 @@ class HomeGroup:
     created_at: datetime | None = None
 
     @classmethod
-    def from_api(cls, payload: dict[str, Any]) -> "HomeGroup":
+    def from_api(cls, payload: dict[str, Any]) -> HomeGroup:
         return cls(
             id=payload["id"],
             name=payload.get("name", ""),
@@ -63,7 +63,7 @@ class Device:
     raw: dict[str, Any] = field(default_factory=dict)
 
     @classmethod
-    def from_api(cls, payload: dict[str, Any]) -> "Device":
+    def from_api(cls, payload: dict[str, Any]) -> Device:
         return cls(
             id=payload["id"],
             name=payload.get("name", ""),
@@ -96,7 +96,7 @@ class Pattern:
     raw: dict[str, Any] = field(default_factory=dict)
 
     @classmethod
-    def from_api(cls, payload: dict[str, Any]) -> "Pattern":
+    def from_api(cls, payload: dict[str, Any]) -> Pattern:
         return cls(
             id=payload["id"],
             name=payload.get("name", ""),
@@ -138,7 +138,7 @@ class DeviceState:
     raw: dict[str, Any] = field(default_factory=dict)
 
     @classmethod
-    def from_api(cls, payload: dict[str, Any]) -> "DeviceState":
+    def from_api(cls, payload: dict[str, Any]) -> DeviceState:
         pat = payload.get("pattern")
         return cls(
             device_id=payload["id"],
@@ -164,7 +164,7 @@ class AccountProfile:
     raw: dict[str, Any] = field(default_factory=dict)
 
     @classmethod
-    def from_api(cls, payload: dict[str, Any]) -> "AccountProfile":
+    def from_api(cls, payload: dict[str, Any]) -> AccountProfile:
         return cls(
             id=payload.get("id", ""),
             username=payload.get("username", ""),
@@ -194,7 +194,7 @@ class HomeGroupUser:
     raw: dict[str, Any] = field(default_factory=dict)
 
     @classmethod
-    def from_api(cls, payload: dict[str, Any]) -> "HomeGroupUser":
+    def from_api(cls, payload: dict[str, Any]) -> HomeGroupUser:
         return cls(
             user_id=payload.get("userId", ""),
             homegroup_id=payload.get("homegroupId", ""),
@@ -230,7 +230,7 @@ class Folder:
     raw: dict[str, Any] = field(default_factory=dict)
 
     @classmethod
-    def from_api(cls, payload: dict[str, Any]) -> "Folder":
+    def from_api(cls, payload: dict[str, Any]) -> Folder:
         bg = payload.get("backgroundColor")
         return cls(
             folder_id=payload.get("folderId", ""),
@@ -270,7 +270,7 @@ class FolderPattern:
     raw: dict[str, Any] = field(default_factory=dict)
 
     @classmethod
-    def from_api(cls, payload: dict[str, Any]) -> "FolderPattern":
+    def from_api(cls, payload: dict[str, Any]) -> FolderPattern:
         pat_data = payload.get("patternData", {}) or {}
         return cls(
             id=payload.get("id", ""),
@@ -300,7 +300,7 @@ class StaticColorSegment:
     color: int = 0
 
     @classmethod
-    def from_api(cls, payload: dict[str, Any]) -> "StaticColorSegment":
+    def from_api(cls, payload: dict[str, Any]) -> StaticColorSegment:
         return cls(
             lights=list(payload.get("lights", []) or []),
             color=int(payload.get("color", 0)),
@@ -331,7 +331,7 @@ class ArchitecturalDesign:
     raw: dict[str, Any] = field(default_factory=dict)
 
     @classmethod
-    def from_api(cls, payload: dict[str, Any]) -> "ArchitecturalDesign":
+    def from_api(cls, payload: dict[str, Any]) -> ArchitecturalDesign:
         return cls(
             id=payload.get("id", ""),
             device_id=payload.get("deviceId", ""),
@@ -381,7 +381,7 @@ class DownloadableFolder:
     raw: dict[str, Any] = field(default_factory=dict)
 
     @classmethod
-    def from_api(cls, payload: dict[str, Any]) -> "DownloadableFolder":
+    def from_api(cls, payload: dict[str, Any]) -> DownloadableFolder:
         bg = payload.get("backgroundColor")
         return cls(
             id=payload.get("id", ""),
@@ -421,7 +421,7 @@ class DownloadablePattern:
     raw: dict[str, Any] = field(default_factory=dict)
 
     @classmethod
-    def from_api(cls, payload: dict[str, Any]) -> "DownloadablePattern":
+    def from_api(cls, payload: dict[str, Any]) -> DownloadablePattern:
         pat_data = payload.get("patternData", {}) or {}
         return cls(
             id=payload.get("id", ""),
@@ -447,7 +447,7 @@ class SwatchColor:
     name: str
 
     @classmethod
-    def from_api(cls, payload: dict[str, Any]) -> "SwatchColor":
+    def from_api(cls, payload: dict[str, Any]) -> SwatchColor:
         return cls(color=int(payload.get("color", 0)), name=payload.get("name", ""))
 
 
@@ -464,7 +464,7 @@ class Swatch:
     raw: dict[str, Any] = field(default_factory=dict)
 
     @classmethod
-    def from_api(cls, payload: dict[str, Any]) -> "Swatch":
+    def from_api(cls, payload: dict[str, Any]) -> Swatch:
         return cls(
             id=payload.get("id", ""),
             name=payload.get("name", ""),
@@ -489,7 +489,7 @@ class EventsScheduleWindow:
     off_offset_minutes: int = 0
 
     @classmethod
-    def from_api(cls, payload: dict[str, Any]) -> "EventsScheduleWindow":
+    def from_api(cls, payload: dict[str, Any]) -> EventsScheduleWindow:
         return cls(
             on_time=payload.get("onTime", ""),
             off_time=payload.get("offTime", ""),
@@ -514,7 +514,7 @@ class EventsSettings:
     raw: dict[str, Any] = field(default_factory=dict)
 
     @classmethod
-    def from_api(cls, payload: dict[str, Any]) -> "EventsSettings":
+    def from_api(cls, payload: dict[str, Any]) -> EventsSettings:
         sched = payload.get("schedule")
         return cls(
             homegroup_id=payload.get("homegroupId", ""),
@@ -558,7 +558,7 @@ class SubscribedEvent:
     raw: dict[str, Any] = field(default_factory=dict)
 
     @classmethod
-    def from_api(cls, payload: dict[str, Any]) -> "SubscribedEvent":
+    def from_api(cls, payload: dict[str, Any]) -> SubscribedEvent:
         bg = payload.get("backgroundColor")
         sel = payload.get("selectedPattern")
         return cls(
@@ -595,7 +595,7 @@ class TimerData:
     off_time: str
 
     @classmethod
-    def from_api(cls, payload: dict[str, Any]) -> "TimerData":
+    def from_api(cls, payload: dict[str, Any]) -> TimerData:
         return cls(
             timer_type=payload.get("timerType", ""),
             on_time=payload.get("onTime", ""),
@@ -625,7 +625,7 @@ class Timer:
     raw: dict[str, Any] = field(default_factory=dict)
 
     @classmethod
-    def from_api(cls, payload: dict[str, Any]) -> "Timer":
+    def from_api(cls, payload: dict[str, Any]) -> Timer:
         td = payload.get("timerData")
         tpd = (payload.get("timerPatternData") or {}).get("pattern")
         return cls(
@@ -662,7 +662,7 @@ class EventCategory:
     raw: dict[str, Any] = field(default_factory=dict)
 
     @classmethod
-    def from_api(cls, payload: dict[str, Any]) -> "EventCategory":
+    def from_api(cls, payload: dict[str, Any]) -> EventCategory:
         bg = payload.get("backgroundColor")
         return cls(
             id=payload.get("id", ""),
@@ -700,7 +700,7 @@ class Announcement:
     raw: dict[str, Any] = field(default_factory=dict)
 
     @classmethod
-    def from_api(cls, payload: dict[str, Any]) -> "Announcement":
+    def from_api(cls, payload: dict[str, Any]) -> Announcement:
         bg = payload.get("backgroundColor")
         return cls(
             id=payload.get("id", ""),

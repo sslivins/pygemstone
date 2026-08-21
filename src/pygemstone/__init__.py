@@ -13,7 +13,6 @@ from .errors import (
     GemstoneNotFoundError,
     GemstoneValueError,
 )
-from .models import Device as DeviceRecord
 from .models import (
     AccountProfile,
     Announcement,
@@ -36,22 +35,18 @@ from .models import (
     Timer,
     TimerData,
 )
+from .models import Device as DeviceRecord
 
 __version__ = "0.0.1"
 
 __all__ = [
-    "GemstoneClient",
-    "GemstoneAuth",
+    "AccountProfile",
+    "Announcement",
     "AppSyncClient",
-    "TokenSet",
+    "ArchitecturalDesign",
     "Device",
     "DeviceRecord",
     "DeviceState",
-    "HomeGroup",
-    "Pattern",
-    "AccountProfile",
-    "Announcement",
-    "ArchitecturalDesign",
     "DownloadableFolder",
     "DownloadablePattern",
     "EventCategory",
@@ -59,21 +54,26 @@ __all__ = [
     "EventsSettings",
     "Folder",
     "FolderPattern",
+    "GemstoneApiError",
+    "GemstoneAuth",
+    "GemstoneAuthError",
+    "GemstoneClient",
+    "GemstoneConnectionError",
+    "GemstoneError",
+    "GemstoneNotFoundError",
+    "GemstoneValueError",
+    "HomeGroup",
     "HomeGroupUser",
+    "Pattern",
     "StaticColorSegment",
     "SubscribedEvent",
     "Swatch",
     "SwatchColor",
     "Timer",
     "TimerData",
-    "GemstoneError",
-    "GemstoneAuthError",
-    "GemstoneApiError",
-    "GemstoneConnectionError",
-    "GemstoneNotFoundError",
-    "GemstoneValueError",
+    "TokenSet",
+    "__version__",
     "color_to_hex",
     "pack_color",
     "unpack_color",
-    "__version__",
 ]

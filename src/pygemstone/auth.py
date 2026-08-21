@@ -18,7 +18,7 @@ import time
 from dataclasses import dataclass
 from typing import Any
 
-from .const import COGNITO_CLIENT_ID, COGNITO_USER_POOL_ID, AWS_REGION
+from .const import AWS_REGION, COGNITO_CLIENT_ID, COGNITO_USER_POOL_ID
 from .errors import GemstoneAuthError
 
 logger = logging.getLogger(__name__)
@@ -129,7 +129,7 @@ class GemstoneAuth:
                 username=self._email,
             )
             cog.authenticate(password=self._password)
-        except Exception as exc:  # noqa: BLE001 — pycognito raises various
+        except Exception as exc:
             raise GemstoneAuthError(f"Cognito SRP auth failed: {exc}") from exc
 
         return self._tokens_from_cognito(cog)
@@ -153,7 +153,7 @@ class GemstoneAuth:
             # refresh_token via REFRESH_TOKEN_AUTH and replaces access/id
             # tokens on the Cognito instance.
             cog.renew_access_token()
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:
             raise GemstoneAuthError(f"Token refresh failed: {exc}") from exc
 
         return self._tokens_from_cognito(cog, refresh_fallback=refresh_token)
@@ -170,9 +170,9 @@ class GemstoneAuth:
         client = boto3.client("cognito-idp", region_name=self._region)
         try:
             client.global_sign_out(AccessToken=access_token)
-        except Exception:  # noqa: BLE001
+        except Exception:
             # 401 here means the token already expired — fine to ignore.
-            pass
+            logger.debug("Global sign-out failed (token likely expired)", exc_info=True)
 
     @staticmethod
     def _tokens_from_cognito(

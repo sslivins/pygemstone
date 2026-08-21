@@ -8,7 +8,7 @@ methods are called in the right order, and that the resulting
 from __future__ import annotations
 
 import time
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from unittest.mock import MagicMock
 
 import pytest
@@ -29,7 +29,7 @@ def _fake_cog(
     cog.access_token = access_token
     cog.id_token = id_token
     cog.refresh_token = refresh_token
-    cog.access_token_expiration = datetime.now(timezone.utc) + timedelta(
+    cog.access_token_expiration = datetime.now(UTC) + timedelta(
         seconds=expires_in
     )
     cog.token_expires_in = expires_in

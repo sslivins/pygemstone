@@ -31,7 +31,7 @@ from __future__ import annotations
 
 from typing import Any
 
-__all__ = ["unpack_color", "pack_color", "color_to_hex"]
+__all__ = ["color_to_hex", "pack_color", "unpack_color"]
 
 
 def unpack_color(value: Any) -> tuple[int, int, int, int]:
@@ -93,4 +93,4 @@ def color_to_hex(value: Any) -> str:
     :raises GemstoneValueError: if ``value`` is not an integer.
     """
     r, g, b, _ = unpack_color(value)
-    return "#%02x%02x%02x" % (r, g, b)
+    return f"#{r:02x}{g:02x}{b:02x}"

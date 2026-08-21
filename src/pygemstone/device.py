@@ -10,8 +10,8 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
-from .models import Device as DeviceRecord, DeviceState, Pattern
-from .models import ArchitecturalDesign
+from .models import ArchitecturalDesign, DeviceState, Pattern
+from .models import Device as DeviceRecord
 
 if TYPE_CHECKING:
     from .client import GemstoneClient
@@ -20,7 +20,7 @@ if TYPE_CHECKING:
 class Device:
     """A Gemstone controller bound to a live client."""
 
-    def __init__(self, client: "GemstoneClient", payload: dict[str, Any]) -> None:
+    def __init__(self, client: GemstoneClient, payload: dict[str, Any]) -> None:
         self._client = client
         self._record = DeviceRecord.from_api(payload)
         self._state: DeviceState | None = None

@@ -52,8 +52,9 @@ import base64
 import json
 import logging
 import uuid
+from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
-from typing import Any, AsyncIterator
+from typing import Any
 from urllib.parse import urlparse
 
 import aiohttp
@@ -296,8 +297,8 @@ class AppSyncClient:
                     if not ws.closed:
                         try:
                             await ws.send_json({"id": sub_id, "type": "stop"})
-                        except Exception:  # noqa: BLE001 - best-effort cleanup
-                            pass
+                        except Exception:
+                            logger.debug("Failed to send WS unsubscribe", exc_info=True)
         except aiohttp.ClientError as exc:
             raise GemstoneConnectionError(
                 f"AppSync WS connect failed: {exc}"
