@@ -316,8 +316,10 @@ class ArchitecturalDesign:
 
     Unlike folder patterns, these are stored per-device (``deviceId``)
     rather than per-homegroup, via ``/deviceControl/architectural/list``
-    and ``/deviceControl/architectural/save``. Re-``save``-ing a design
-    with its existing ``id`` both updates and immediately applies it.
+    and ``/deviceControl/architectural/save``. ``save`` only persists the
+    record — it does **not** push the look to the lights. Activating a
+    design is a separate device command, ``/deviceControl/play/architectural``
+    (see :meth:`to_play_api` and ``GemstoneClient.play_architectural_design``).
     """
 
     id: str
@@ -356,6 +358,22 @@ class ArchitecturalDesign:
             "brightness": self.brightness,
             "staticColors": [sc.to_api() for sc in self.static_colors],
             "isFavorite": self.is_favorite,
+        }
+
+    def to_play_api(self, *, preview: bool = False) -> dict[str, Any]:
+        """Render the body expected by ``deviceControl/play/architectural``.
+
+        This is the *activate* command shape captured from the iOS app.
+        It differs from :meth:`to_api`: the ``deviceId`` moves to the query
+        string, ``isFavorite`` is dropped, and a ``preview`` flag is added
+        (the app sends ``true`` while live-dragging, ``false`` to commit).
+        """
+        return {
+            "brightness": self.brightness,
+            "id": self.id,
+            "name": self.name,
+            "preview": preview,
+            "staticColors": [sc.to_api() for sc in self.static_colors],
         }
 
 
