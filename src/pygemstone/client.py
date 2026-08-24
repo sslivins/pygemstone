@@ -318,10 +318,12 @@ class GemstoneClient:
     async def save_architectural_design(
         self, design: ArchitecturalDesign
     ) -> ArchitecturalDesign:
-        """Create or update (and immediately apply) a device's custom design.
+        """Create or update a device's custom design record.
 
         Pass a design with a blank ``id`` to create a new one, or an
-        existing ``id`` to update + apply it in place.
+        existing ``id`` to update it in place. This only persists the
+        record — it does **not** apply the look to the lights. Use
+        :meth:`play_architectural_design` to activate a design.
         """
         payload = await self._put(
             "/deviceControl/architectural/save",
@@ -329,6 +331,22 @@ class GemstoneClient:
             json_body=design.to_api(),
         )
         return ArchitecturalDesign.from_api(payload.get("data", {}) or {})
+
+    async def play_architectural_design(
+        self, design: ArchitecturalDesign
+    ) -> str:
+        """Activate a custom design on the device's lights.
+
+        Sends the ``/deviceControl/play/architectural`` command captured
+        from the iOS app (``save`` alone does not change the lights).
+        Returns the command's transaction id.
+        """
+        payload = await self._put(
+            "/deviceControl/play/architectural",
+            params={"deviceId": design.device_id},
+            json_body={"architectural": design.to_play_api()},
+        )
+        return str(payload.get("data", {}).get("txId", ""))
 
     # ------------------------------------------------------------------
     # Autopilot / scheduling

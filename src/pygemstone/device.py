@@ -69,9 +69,12 @@ class Device:
 
     async def apply_architectural_design(
         self, design: ArchitecturalDesign
-    ) -> ArchitecturalDesign:
-        """Re-save (and thereby apply) one of this device's custom designs."""
-        return await self._client.save_architectural_design(design)
+    ) -> str:
+        """Activate one of this device's custom designs on the lights.
+
+        Returns the command's transaction id.
+        """
+        return await self._client.play_architectural_design(design)
 
     def __repr__(self) -> str:
         return f"<Device id={self.id!r} name={self.name!r}>"

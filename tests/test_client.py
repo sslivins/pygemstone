@@ -464,6 +464,34 @@ async def test_save_architectural_design(gc: GemstoneClient) -> None:
 
 
 @pytest.mark.rest
+async def test_play_architectural_design(gc: GemstoneClient) -> None:
+    design = ArchitecturalDesign(
+        id="ad-1",
+        device_id="h2-test",
+        name="Front Door",
+        brightness=255,
+        static_colors=[StaticColorSegment(lights=[300, 300, 307], color=4294967295)],
+        is_favorite=False,
+    )
+    with aioresponses() as m:
+        m.put(
+            f"{REST_API_BASE}/deviceControl/play/architectural?deviceId=h2-test",
+            payload={"data": {"txId": "tx-arch-1"}, "statusCode": 200},
+        )
+        tx = await gc.play_architectural_design(design)
+    assert tx == "tx-arch-1"
+    req = next(iter(m.requests.values()))[0]
+    body = req.kwargs["json"]
+    arch = body["architectural"]
+    assert arch["id"] == "ad-1"
+    assert arch["name"] == "Front Door"
+    assert arch["preview"] is False
+    assert arch["staticColors"] == [{"lights": [300, 300, 307], "color": 4294967295}]
+    assert "deviceId" not in arch
+    assert "isFavorite" not in arch
+
+
+@pytest.mark.rest
 async def test_events_settings(gc: GemstoneClient) -> None:
     with aioresponses() as m:
         m.get(
