@@ -7,6 +7,12 @@
 Standalone Python library for **Gemstone Lights** permanent-Christmas-light
 controllers.
 
+> **Hub2 controllers only.** pygemstone talks to the backend used by the
+> *Gemstone Lights Hub2* app (Hub2 controllers, 2024 and newer). Original
+> **Hub1** controllers (2017–2024, *Gemstone Lights Hub* app) use a different
+> cloud platform and accounts; a Hub1 login fails with
+> `UserNotFoundException`.
+
 Gemstone's mobile app talks to an AWS Amplify backend
 ([Cognito](https://aws.amazon.com/cognito/) +
 [API Gateway](https://aws.amazon.com/api-gateway/) +
