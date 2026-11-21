@@ -55,7 +55,10 @@ is essentially:
   - `events_categories()` — full catalogue of holiday / sport / event categories
 - **Timers:**
   - `timers_by_homegroup(hg)` — scheduled on/off timers with optional pattern
-  - `create_timer(...)` / `set_timer_enabled(...)` / `delete_timer(...)` (no update endpoint: edit = delete + create)
+  - `create_timer(...)` / `update_timer(timer)` / `set_timer_enabled(...)` / `delete_timer(...)`
+  - `timer_type`: `"daily"`, `"weekly"` (`days_of_week`, 0 = Sunday) or `"yearly"` (`start_date`/`end_date` as `"MM-DD"`; same date = one specific day). `on_offset_minutes` shifts a sunset/sunrise start.
+  - **The controller applies one timer change at a time (~2 s each).** A write sent while another is pending is silently dropped (the API still returns 200). Call `wait_for_timer(hg, timer_id, ...)` after each write before sending the next to the same device.
+  - The cloud ignores `enabled` on create/update (timers always come back enabled). `create_timer(enabled=False)` and `update_timer` on a disabled timer therefore wait for the write to land and then call `set_timer_enabled(..., False)`.
   - `subscribed_events_past(hg)`
 - **Misc:**
   - `announcements()` — in-app announcements

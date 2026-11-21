@@ -11,6 +11,7 @@ from .errors import (
     GemstoneConnectionError,
     GemstoneError,
     GemstoneNotFoundError,
+    GemstoneTimeoutError,
     GemstoneValueError,
 )
 from .models import (
@@ -40,7 +41,7 @@ from .models import (
 )
 from .models import Device as DeviceRecord
 
-__version__ = "0.1.0"
+__version__ = "0.2.0"
 
 __all__ = [
     "AccountProfile",
@@ -64,6 +65,7 @@ __all__ = [
     "GemstoneConnectionError",
     "GemstoneError",
     "GemstoneNotFoundError",
+    "GemstoneTimeoutError",
     "GemstoneValueError",
     "HomeGroup",
     "HomeGroupUser",

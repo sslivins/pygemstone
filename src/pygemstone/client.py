@@ -7,10 +7,11 @@ capture (:mod:`pygemstone.const`).
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import time
 import uuid
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Callable
 from contextlib import asynccontextmanager
 from types import TracebackType
 from typing import Any, Self
@@ -25,6 +26,7 @@ from .errors import (
     GemstoneApiError,
     GemstoneAuthError,
     GemstoneConnectionError,
+    GemstoneTimeoutError,
 )
 from .models import (
     AccountProfile,
@@ -77,6 +79,10 @@ class GemstoneClient:
         self._session = session
         self._owns_session = session is None
         self._appsync: AppSyncClient | None = None
+
+    # Polling used by :meth:`wait_for_timer` (seconds).
+    timer_poll_interval: float = 1.0
+    timer_settle_timeout: float = 30.0
 
     async def __aenter__(self) -> Self:
         if self._session is None:
@@ -534,32 +540,21 @@ class GemstoneClient:
         )
         return [Timer.from_api(t) for t in payload.get("data", []) or []]
 
-    async def create_timer(
-        self,
+    @staticmethod
+    def _timer_body(
         device_or_group_id: str,
         homegroup_id: str,
-        *,
+        timer_id: str,
         name: str,
-        on_time: str,
-        off_time: str,
+        timer_data: TimerData,
         pattern: Pattern,
-        enabled: bool = True,
-        timer_type: str = "daily",
-        timer_id: str | None = None,
-    ) -> Timer:
-        """Create a timer that plays ``pattern`` between two times.
-
-        ``on_time`` / ``off_time`` are ``"HH:MM"`` (24h) or ``"sunset"``
-        / ``"sunrise"``. The API has no update call: to edit a timer,
-        delete it and create it again.
-        """
-        timer_id = timer_id or str(uuid.uuid4())
-        body = {
+        enabled: bool,
+    ) -> dict[str, Any]:
+        timer_data.validate()
+        return {
             "enabled": bool(enabled),
             "name": name,
-            "timerData": TimerData(
-                timer_type=timer_type, on_time=on_time, off_time=off_time
-            ).to_api(),
+            "timerData": timer_data.to_api(),
             "assigneeId": device_or_group_id,
             "homegroupId": homegroup_id,
             "timerPatternData": {
@@ -572,17 +567,144 @@ class GemstoneClient:
                     "speed": pattern.speed,
                     "direction": pattern.direction,
                     "referencePatternId": pattern.reference_pattern_id,
+                    "backgroundColor": pattern.background_color,
                 }
             },
             "id": timer_id,
         }
+
+    async def create_timer(
+        self,
+        device_or_group_id: str,
+        homegroup_id: str,
+        *,
+        name: str,
+        on_time: str,
+        off_time: str,
+        pattern: Pattern,
+        enabled: bool = True,
+        timer_type: str = "daily",
+        days_of_week: list[int] | None = None,
+        start_date: str | None = None,
+        end_date: str | None = None,
+        on_offset_minutes: int | None = None,
+        timer_id: str | None = None,
+    ) -> Timer:
+        """Create a timer that plays ``pattern`` between two times.
+
+        ``on_time`` / ``off_time`` are ``"HH:MM"`` (24h) or ``"sunset"``
+        / ``"sunrise"``. ``timer_type`` is ``"daily"``, ``"weekly"``
+        (needs ``days_of_week``, 0 = Sunday) or ``"yearly"`` (also needs
+        ``start_date`` / ``end_date`` as ``"MM-DD"``; use the same date
+        for a single day). Yearly timers default to every weekday.
+        """
+        if timer_type == "yearly" and days_of_week is None:
+            days_of_week = list(range(7))
+        timer_data = TimerData(
+            timer_type=timer_type,
+            on_time=on_time,
+            off_time=off_time,
+            days_of_week=days_of_week,
+            start_date=start_date,
+            end_date=end_date,
+            on_offset_minutes=on_offset_minutes,
+        )
+        body = self._timer_body(
+            device_or_group_id, homegroup_id, timer_id or str(uuid.uuid4()),
+            name, timer_data, pattern, enabled,
+        )
         payload = await self._post(
             "/timer/create",
             params={"deviceOrGroupId": device_or_group_id},
             json_body={"timer": body},
         )
         body["txId"] = str((payload.get("data") or {}).get("txId", ""))
-        return Timer.from_api(body)
+        timer = Timer.from_api(body)
+        if not enabled:
+            await self.wait_for_timer(homegroup_id, timer.id)
+            await self._disable_timer(timer)
+        return timer
+
+    async def update_timer(self, timer: Timer) -> Timer:
+        """Replace an existing timer (name, schedule, pattern, enabled).
+
+        Edit a :class:`Timer` from :meth:`timers_by_homegroup` (or
+        :meth:`create_timer`) and pass it back; ``timer_data`` and
+        ``pattern`` are required.
+
+        The cloud re-enables a timer on every update, so when
+        ``timer.enabled`` is false this waits for the update to land
+        and then disables it again.
+        """
+        if timer.timer_data is None or timer.pattern is None:
+            raise ValueError("update_timer needs timer_data and pattern")
+        body = self._timer_body(
+            timer.assignee_id, timer.homegroup_id, timer.id, timer.name,
+            timer.timer_data, timer.pattern, timer.enabled,
+        )
+        payload = await self._put(
+            "/timer/update",
+            params={"deviceOrGroupId": timer.assignee_id},
+            json_body={"timer": body},
+        )
+        body["txId"] = str((payload.get("data") or {}).get("txId", ""))
+        updated = Timer.from_api(body)
+        if not timer.enabled:
+            sent = (updated.name, body["timerData"])
+            await self.wait_for_timer(
+                timer.homegroup_id, timer.id,
+                lambda t: t.timer_data is not None
+                and (t.name, t.timer_data.to_api()) == sent,
+            )
+            await self._disable_timer(updated)
+        return updated
+
+    async def _disable_timer(self, timer: Timer) -> None:
+        await self.set_timer_enabled(timer.assignee_id, timer.id, False)
+        await self.wait_for_timer(
+            timer.homegroup_id, timer.id, lambda t: not t.enabled
+        )
+
+    async def wait_for_timer(
+        self,
+        homegroup_id: str,
+        timer_id: str,
+        predicate: Callable[[Timer], bool] | None = None,
+        *,
+        present: bool = True,
+        timeout: float | None = None,
+    ) -> Timer | None:
+        """Poll the timer list until a change has landed.
+
+        Timer writes return before the device applies them, and a write
+        sent while another is still pending for the same device is
+        silently dropped. Wait on each write before sending the next.
+
+        With ``present=True`` (default) returns the listed timer once it
+        exists and ``predicate`` (if any) holds; with ``present=False``
+        returns ``None`` once the timer is gone. Raises
+        :class:`GemstoneTimeoutError` after ``timeout`` seconds
+        (default :attr:`timer_settle_timeout`).
+        """
+        deadline = time.monotonic() + (
+            self.timer_settle_timeout if timeout is None else timeout
+        )
+        while True:
+            listed = {
+                t.id: t for t in await self.timers_by_homegroup(homegroup_id)
+            }
+            found = listed.get(timer_id)
+            if not present and found is None:
+                return None
+            if present and found is not None and (
+                predicate is None or predicate(found)
+            ):
+                return found
+            if time.monotonic() >= deadline:
+                raise GemstoneTimeoutError(
+                    f"timer {timer_id} did not settle in time"
+                )
+            await asyncio.sleep(self.timer_poll_interval)
 
     async def set_timer_enabled(
         self, device_or_group_id: str, timer_id: str, enabled: bool

@@ -15,6 +15,10 @@ class GemstoneConnectionError(GemstoneError):
     """Raised when the Gemstone cloud is unreachable or returns a transport error."""
 
 
+class GemstoneTimeoutError(GemstoneConnectionError):
+    """Raised when a change was accepted but never showed up in time."""
+
+
 class GemstoneApiError(GemstoneError):
     """Raised when the Gemstone API returns a non-success HTTP status.
 

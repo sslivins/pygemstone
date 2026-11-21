@@ -12,9 +12,13 @@ ints by hand.
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass, field
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 from typing import Any
+
+TIMER_TYPES = ("daily", "weekly", "yearly")
+_MM_DD = re.compile(r"\d{2}-\d{2}")
 
 
 def encode_lights(indices: Any) -> list[int]:
@@ -720,26 +724,71 @@ class SubscribedEvent:
 
 @dataclass(slots=True)
 class TimerData:
-    """The schedule portion of a :class:`Timer` (``timerData``)."""
+    """The schedule portion of a :class:`Timer` (``timerData``).
+
+    ``timer_type`` is ``"daily"``, ``"weekly"`` or ``"yearly"``.
+    ``days_of_week`` (``repeatDaysOfTheWeek``) uses 0 = Sunday .. 6 =
+    Saturday and is required for weekly/yearly. Yearly timers also need
+    ``start_date``/``end_date`` as ``"MM-DD"`` (inclusive; the same date
+    for a single day). ``on_offset_minutes`` shifts a ``"sunset"`` /
+    ``"sunrise"`` on-time (e.g. ``-45``).
+    """
 
     timer_type: str
     on_time: str
     off_time: str
+    days_of_week: list[int] | None = None
+    start_date: str | None = None
+    end_date: str | None = None
+    on_offset_minutes: int | None = None
 
     @classmethod
     def from_api(cls, payload: dict[str, Any]) -> TimerData:
+        days = payload.get("repeatDaysOfTheWeek")
+        offset = payload.get("onOffsetInMinutes")
         return cls(
             timer_type=payload.get("timerType", ""),
             on_time=payload.get("onTime", ""),
             off_time=payload.get("offTime", ""),
+            days_of_week=[int(d) for d in days] if days is not None else None,
+            start_date=payload.get("startDate"),
+            end_date=payload.get("endDate"),
+            on_offset_minutes=int(offset) if offset is not None else None,
         )
 
+    def validate(self) -> None:
+        """Raise ``ValueError`` if the schedule can't be sent to the API."""
+        if self.timer_type not in TIMER_TYPES:
+            raise ValueError(f"timer_type must be one of {TIMER_TYPES}")
+        if self.timer_type in ("weekly", "yearly"):
+            if not self.days_of_week:
+                raise ValueError(f"{self.timer_type} timers need days_of_week")
+            if any(not 0 <= int(d) <= 6 for d in self.days_of_week):
+                raise ValueError("days_of_week values must be 0 (Sun) .. 6 (Sat)")
+        if self.timer_type == "yearly":
+            for label, value in (("start_date", self.start_date), ("end_date", self.end_date)):
+                if not value or not _MM_DD.fullmatch(value):
+                    raise ValueError(f"yearly timers need {label} as 'MM-DD'")
+                month, day = (int(p) for p in value.split("-"))
+                try:
+                    date(2024, month, day)  # leap year, so 02-29 is allowed
+                except ValueError as exc:
+                    raise ValueError(f"invalid {label} {value!r}") from exc
+
     def to_api(self) -> dict[str, Any]:
-        return {
+        out: dict[str, Any] = {
             "onTime": self.on_time,
             "offTime": self.off_time,
             "timerType": self.timer_type,
         }
+        if self.on_offset_minutes is not None:
+            out["onOffsetInMinutes"] = int(self.on_offset_minutes)
+        if self.timer_type == "yearly":
+            out["startDate"] = self.start_date
+            out["endDate"] = self.end_date
+        if self.timer_type in ("weekly", "yearly") and self.days_of_week is not None:
+            out["repeatDaysOfTheWeek"] = sorted({int(d) for d in self.days_of_week})
+        return out
 
 
 @dataclass(slots=True)
