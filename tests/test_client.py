@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 import time
 
 import pytest
@@ -656,3 +657,191 @@ async def test_events_categories(gc: GemstoneClient) -> None:
     assert cats[0].suggested is True
     assert cats[1].icon is None
     assert cats[1].background_color is None
+
+
+# ---------------------------------------------------------------------------
+# Write endpoints captured 2026-11-21 (zones, timers, patterns, arch CRUD)
+# ---------------------------------------------------------------------------
+
+from pygemstone.models import Zone
+
+
+def _req(m: aioresponses, method: str):
+    for (meth, url), calls in m.requests.items():
+        if meth == method:
+            return url, calls[0]
+    raise AssertionError(f"no {method} request")
+
+
+@pytest.mark.rest
+async def test_zones_list_save_delete(gc: GemstoneClient) -> None:
+    zone_payload = {
+        "id": "z1", "deviceId": "h2-test", "name": "Door",
+        "lights": [0, 0, 3], "icon": "house_3", "confirmed": False,
+    }
+    with aioresponses() as m:
+        m.get(
+            f"{REST_API_BASE}/deviceControl/zone/list?deviceId=h2-test",
+            payload={"data": [zone_payload]},
+        )
+        m.put(
+            f"{REST_API_BASE}/deviceControl/zone/save?deviceId=h2-test",
+            payload={"data": {**zone_payload, "id": "ignored-echo"}},
+        )
+        m.delete(
+            f"{REST_API_BASE}/deviceControl/zone/delete?deviceId=h2-test&zoneId=z1",
+            payload={"message": "Zone deleted successfully"},
+        )
+        zones = await gc.zones("h2-test")
+        new = Zone(id="", device_id="h2-test", name="Door", lights=[0, 0, 3])
+        await gc.save_zone(new)
+        await gc.delete_zone("h2-test", "z1")
+    assert zones[0].indices == [0, 1, 2, 3]
+    _, put = _req(m, "PUT")
+    body = put.kwargs["json"]
+    assert body["id"] and body["id"] == new.id  # client-generated uuid
+    assert body["lights"] == [0, 0, 3]
+    assert body["deviceId"] == "h2-test"
+
+
+@pytest.mark.rest
+async def test_impulse(gc: GemstoneClient) -> None:
+    with aioresponses() as m:
+        m.put(
+            f"{REST_API_BASE}/deviceControl/play/impulse?deviceOrGroupId=h2-test",
+            payload={"data": {"txId": "tx-i"}},
+        )
+        tx = await gc.impulse("h2-test", [1])
+    assert tx == "tx-i"
+    _, put = _req(m, "PUT")
+    assert put.kwargs["json"] == {
+        "impulse": {"lengthInSeconds": 0, "blinkPeriodMs": 0, "lights": [1], "color": 0}
+    }
+
+
+@pytest.mark.rest
+async def test_architectural_delete_and_preview(gc: GemstoneClient) -> None:
+    design = ArchitecturalDesign(
+        id="ad-1", device_id="h2-test", name="Front Door", brightness=200,
+        static_colors=[StaticColorSegment(lights=[0, 0, 7], color=255)],
+        is_favorite=False,
+    )
+    with aioresponses() as m:
+        m.delete(
+            f"{REST_API_BASE}/deviceControl/architectural/delete"
+            "?deviceId=h2-test&architecturalId=ad-1",
+            payload={"statusCode": 200},
+        )
+        m.put(
+            f"{REST_API_BASE}/deviceControl/play/architectural?deviceId=h2-test",
+            payload={"data": {"txId": "tx-p"}},
+        )
+        await gc.delete_architectural_design("h2-test", "ad-1")
+        tx = await gc.preview_architectural_design(design)
+    assert tx == "tx-p"
+    _, put = _req(m, "PUT")
+    arch = put.kwargs["json"]["architectural"]
+    assert arch["preview"] is True
+    assert arch["name"] == "Preview"
+    assert design.name == "Front Door"  # caller's object untouched
+
+
+@pytest.mark.rest
+async def test_save_architectural_design_generates_id(gc: GemstoneClient) -> None:
+    design = ArchitecturalDesign(
+        id="", device_id="h2-test", name="New", brightness=255,
+        static_colors=[], is_favorite=False,
+    )
+    with aioresponses() as m:
+        m.put(
+            f"{REST_API_BASE}/deviceControl/architectural/save?deviceId=h2-test",
+            payload={"data": {"id": "x", "deviceId": "h2-test", "name": "New"}},
+        )
+        await gc.save_architectural_design(design)
+    _, put = _req(m, "PUT")
+    assert put.kwargs["json"]["id"] == design.id != ""
+
+
+@pytest.mark.rest
+async def test_save_and_delete_pattern(gc: GemstoneClient) -> None:
+    pattern = Pattern(
+        id="", name="Ski Hill", colors=[255, 16711680], animation="chase",
+        brightness=200, speed=100, extra_parameters={"version": 0},
+    )
+    with aioresponses() as m:
+        m.put(
+            re.compile(rf"{re.escape(REST_API_BASE)}/folders/pattern/save\?.*"),
+            payload={
+                "data": {
+                    "id": "fp1", "ownerId": "o", "folderId": "f1",
+                    "isFavorite": True, "createdAt": 1700000000,
+                    "lastUpdatedAt": 1700000000,
+                    "patternData": {"id": "p", "name": "Ski Hill",
+                                    "colors": [255, 16711680]},
+                }
+            },
+        )
+        m.delete(
+            re.compile(rf"{re.escape(REST_API_BASE)}/folders/pattern/delete\?.*"),
+            payload={"message": "Successful.", "statusCode": 200},
+        )
+        saved = await gc.save_pattern("f1", pattern, is_favorite=True)
+        before = int(time.time())
+        await gc.delete_pattern("f1", "p1")
+    assert saved.folder_id == "f1"
+    url, put = _req(m, "PUT")
+    assert url.query["folderId"] == "f1"
+    assert url.query["patternId"] == pattern.id != ""
+    body = put.kwargs["json"]
+    assert body["isFavorite"] is True
+    assert body["patternData"]["extraParameters"] == {"version": 0}
+    assert body["patternData"]["animation"] == "chase"
+    url, _ = _req(m, "DELETE")
+    assert url.query["patternId"] == "p1"
+    delta = int(url.query["deleteAfter"]) - before
+    assert 30 * 86400 - 5 <= delta <= 30 * 86400 + 5
+
+
+@pytest.mark.rest
+async def test_timer_create_enable_delete(gc: GemstoneClient) -> None:
+    pattern = Pattern(id="p1", name="Warm", colors=[255], reference_pattern_id="ref")
+    with aioresponses() as m:
+        m.post(
+            f"{REST_API_BASE}/timer/create?deviceOrGroupId=h2-test",
+            payload={"data": {"txId": "tx-t"}},
+        )
+        m.put(
+            f"{REST_API_BASE}/timer/enabled?id=t1&deviceOrGroupId=h2-test",
+            payload={"statusCode": 200},
+        )
+        m.delete(
+            f"{REST_API_BASE}/timer/delete?deviceOrGroupId=h2-test&id=t1",
+            payload={"statusCode": 200},
+        )
+        timer = await gc.create_timer(
+            "h2-test", "hg1", name="Evening", on_time="sunset",
+            off_time="22:00", pattern=pattern, timer_id="t1",
+        )
+        await gc.set_timer_enabled("h2-test", "t1", False)
+        await gc.delete_timer("h2-test", "t1")
+    assert timer.id == "t1"
+    assert timer.tx_id == "tx-t"
+    assert timer.timer_data is not None and timer.timer_data.off_time == "22:00"
+    assert timer.pattern is not None and timer.pattern.reference_pattern_id == "ref"
+    _, post = _req(m, "POST")
+    t = post.kwargs["json"]["timer"]
+    assert t["timerData"] == {"onTime": "sunset", "offTime": "22:00", "timerType": "daily"}
+    assert t["assigneeId"] == "h2-test" and t["homegroupId"] == "hg1"
+    assert t["timerPatternData"]["pattern"]["referencePatternId"] == "ref"
+    _, put = _req(m, "PUT")
+    assert put.kwargs["json"] == {"enabled": False}
+
+
+@pytest.mark.rest
+async def test_subscribed_events_past(gc: GemstoneClient) -> None:
+    with aioresponses() as m:
+        m.get(
+            f"{REST_API_BASE}/events/listSubscribedPast?homegroupId=hg1",
+            payload={"data": []},
+        )
+        assert await gc.subscribed_events_past("hg1") == []

@@ -38,8 +38,15 @@ is essentially:
   - `devices(hg)` — list controllers
   - `device_state(id)` / `set_on_state(id, on)` / `play_pattern(id, p)`
   - `device_groups(hg)` — multi-device zones (raw dict; schema unknown)
+  - `impulse(id, lights, color=...)` — blink individual lights (e.g. to identify them)
+- **Zones (light subsets of one controller):**
+  - `zones(id)` / `save_zone(zone)` / `delete_zone(id, zone_id)`
+  - `encode_lights` / `decode_lights` — the API's compressed light-index lists
+- **Architectural designs (static per-light colours):**
+  - `save_architectural_design` / `delete_architectural_design` / `preview_architectural_design`
 - **Pattern catalogue:**
   - `folders()` / `folder_patterns(page=N)` / `save_folder(id, body)`
+  - `save_pattern(folder_id, pattern)` / `delete_pattern(folder_id, pattern_id)` — custom patterns
   - `swatches()` — colour palettes
   - `downloadable_folders(page=N)` / `downloadable_patterns(page=N)` — Gemstone-curated catalogue
 - **Autopilot / scheduling:**
@@ -48,6 +55,8 @@ is essentially:
   - `events_categories()` — full catalogue of holiday / sport / event categories
 - **Timers:**
   - `timers_by_homegroup(hg)` — scheduled on/off timers with optional pattern
+  - `create_timer(...)` / `set_timer_enabled(...)` / `delete_timer(...)` (no update endpoint: edit = delete + create)
+  - `subscribed_events_past(hg)`
 - **Misc:**
   - `announcements()` — in-app announcements
 
@@ -66,7 +75,6 @@ ever flips real-time on.
 
 - Cognito global sign-out (currently only clears local tokens)
 - Schedule/event subscribe + unsubscribe mutations
-- Timer create / update / delete (only list is currently captured)
 
 ## Installation
 

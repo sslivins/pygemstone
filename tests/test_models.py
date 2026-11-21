@@ -572,3 +572,69 @@ def test_event_category_team_decode() -> None:
     assert c.icon is None
     assert c.background_color is None
     assert c.suggested is False
+
+
+# ---------------------------------------------------------------------------
+# Light-index encoding + zones
+# ---------------------------------------------------------------------------
+
+from pygemstone.models import Zone, decode_lights, encode_lights
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize(
+    ("indices", "wire"),
+    [
+        ([], []),
+        ([0], [0]),
+        ([0, 1], [0, 1]),
+        ([0, 1, 2], [0, 1, 2]),
+        ([0, 1, 2, 3], [0, 0, 3]),
+        ([4, 5, 6, 7], [4, 4, 7]),
+        ([7, 5, 4, 6, 6], [4, 4, 7]),
+        ([0, 1, 2, 3, 9, 20, 21, 22, 23, 24], [0, 0, 3, 9, 20, 20, 24]),
+    ],
+)
+def test_encode_lights(indices: list[int], wire: list[int]) -> None:
+    assert encode_lights(indices) == wire
+    assert decode_lights(wire) == sorted(set(indices))
+
+
+@pytest.mark.unit
+def test_decode_lights_captured_examples() -> None:
+    assert decode_lights([300, 300, 307]) == list(range(300, 308))
+    assert decode_lights([1]) == [1]
+    assert decode_lights([0, 1]) == [0, 1]
+
+
+@pytest.mark.unit
+def test_lights_reject_bad_input() -> None:
+    with pytest.raises(ValueError):
+        encode_lights([-1])
+    with pytest.raises(ValueError):
+        decode_lights([5, 5, 2])
+
+
+@pytest.mark.unit
+def test_zone_round_trip() -> None:
+    payload = {
+        "id": "z1",
+        "deviceId": "h2-test",
+        "name": "Front door",
+        "lights": [10, 10, 20],
+        "icon": "house_3",
+        "confirmed": False,
+        "txId": "tx",
+        "createdAt": 1700000000,
+        "lastUpdatedAt": 1700000001,
+    }
+    z = Zone.from_api(payload)
+    assert z.indices == list(range(10, 21))
+    assert z.to_api() == {
+        "deviceId": "h2-test",
+        "name": "Front door",
+        "id": "z1",
+        "lights": [10, 10, 20],
+        "icon": "house_3",
+        "confirmed": False,
+    }
