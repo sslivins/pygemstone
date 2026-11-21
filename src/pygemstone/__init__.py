@@ -34,10 +34,13 @@ from .models import (
     SwatchColor,
     Timer,
     TimerData,
+    Zone,
+    decode_lights,
+    encode_lights,
 )
 from .models import Device as DeviceRecord
 
-__version__ = "0.0.1"
+__version__ = "0.1.0"
 
 __all__ = [
     "AccountProfile",
@@ -72,8 +75,11 @@ __all__ = [
     "Timer",
     "TimerData",
     "TokenSet",
+    "Zone",
     "__version__",
     "color_to_hex",
+    "decode_lights",
+    "encode_lights",
     "pack_color",
     "unpack_color",
 ]

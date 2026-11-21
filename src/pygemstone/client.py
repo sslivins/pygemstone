@@ -8,6 +8,8 @@ capture (:mod:`pygemstone.const`).
 from __future__ import annotations
 
 import logging
+import time
+import uuid
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from types import TracebackType
@@ -41,6 +43,8 @@ from .models import (
     SubscribedEvent,
     Swatch,
     Timer,
+    TimerData,
+    Zone,
 )
 
 logger = logging.getLogger(__name__)
@@ -269,6 +273,56 @@ class GemstoneClient:
         )
         return Folder.from_api(payload.get("data", {}) or {})
 
+    async def save_pattern(
+        self, folder_id: str, pattern: Pattern, *, is_favorite: bool = False
+    ) -> FolderPattern:
+        """Create or update a pattern in one of the user's folders.
+
+        A blank ``pattern.id`` gets a new uuid. The saved pattern can then
+        be played with :meth:`play_pattern`.
+        """
+        if not pattern.id:
+            pattern.id = str(uuid.uuid4())
+        data: dict[str, Any] = {
+            "name": pattern.name,
+            "colors": pattern.colors,
+            "animation": pattern.animation,
+            "brightness": pattern.brightness,
+            "id": pattern.id,
+            "speed": pattern.speed,
+            "direction": pattern.direction,
+            "backgroundColor": pattern.background_color,
+        }
+        if pattern.extra_parameters is not None:
+            data["extraParameters"] = pattern.extra_parameters
+        payload = await self._put(
+            "/folders/pattern/save",
+            params={"folderId": folder_id, "patternId": pattern.id},
+            json_body={
+                "isFavorite": bool(is_favorite),
+                "gemstoneManaged": None,
+                "hidden": None,
+                "patternData": data,
+            },
+        )
+        return FolderPattern.from_api(payload.get("data", {}) or {})
+
+    async def delete_pattern(
+        self, folder_id: str, pattern_id: str, *, retain_days: int = 30
+    ) -> None:
+        """Delete a pattern from a folder.
+
+        The app soft-deletes with ``deleteAfter`` = now + 30 days.
+        """
+        await self._delete(
+            "/folders/pattern/delete",
+            params={
+                "folderId": folder_id,
+                "patternId": pattern_id,
+                "deleteAfter": str(int(time.time()) + retain_days * 86400),
+            },
+        )
+
     async def swatches(self) -> list[Swatch]:
         """List the user's colour swatches (named palettes)."""
         payload = await self._get("/swatches/list")
@@ -325,12 +379,37 @@ class GemstoneClient:
         record — it does **not** apply the look to the lights. Use
         :meth:`play_architectural_design` to activate a design.
         """
+        if not design.id:
+            # The cloud expects a client-generated uuid (as the iOS app sends).
+            design.id = str(uuid.uuid4())
         payload = await self._put(
             "/deviceControl/architectural/save",
             params={"deviceId": design.device_id},
             json_body=design.to_api(),
         )
         return ArchitecturalDesign.from_api(payload.get("data", {}) or {})
+
+    async def delete_architectural_design(
+        self, device_id: str, design_id: str
+    ) -> None:
+        """Delete a device's saved custom design."""
+        await self._delete(
+            "/deviceControl/architectural/delete",
+            params={"deviceId": device_id, "architecturalId": design_id},
+        )
+
+    async def preview_architectural_design(
+        self, design: ArchitecturalDesign
+    ) -> str:
+        """Show an unsaved design on the lights (the app's live-edit preview)."""
+        body = design.to_play_api(preview=True)
+        body["name"] = "Preview"
+        payload = await self._put(
+            "/deviceControl/play/architectural",
+            params={"deviceId": design.device_id},
+            json_body={"architectural": body},
+        )
+        return str(payload.get("data", {}).get("txId", ""))
 
     async def play_architectural_design(
         self, design: ArchitecturalDesign
@@ -345,6 +424,63 @@ class GemstoneClient:
             "/deviceControl/play/architectural",
             params={"deviceId": design.device_id},
             json_body={"architectural": design.to_play_api()},
+        )
+        return str(payload.get("data", {}).get("txId", ""))
+
+    # ------------------------------------------------------------------
+    # Zones (named light ranges) + light identification
+    # ------------------------------------------------------------------
+
+    async def zones(self, device_id: str) -> list[Zone]:
+        """List a device's saved zones."""
+        payload = await self._get(
+            "/deviceControl/zone/list", params={"deviceId": device_id}
+        )
+        return [Zone.from_api(z) for z in payload.get("data", []) or []]
+
+    async def save_zone(self, zone: Zone) -> Zone:
+        """Create or update a zone (a blank ``id`` gets a new uuid)."""
+        if not zone.id:
+            zone.id = str(uuid.uuid4())
+        payload = await self._put(
+            "/deviceControl/zone/save",
+            params={"deviceId": zone.device_id},
+            json_body=zone.to_api(),
+        )
+        return Zone.from_api(payload.get("data", {}) or {})
+
+    async def delete_zone(self, device_id: str, zone_id: str) -> None:
+        """Delete a zone."""
+        await self._delete(
+            "/deviceControl/zone/delete",
+            params={"deviceId": device_id, "zoneId": zone_id},
+        )
+
+    async def impulse(
+        self,
+        device_or_group_id: str,
+        lights: list[int],
+        *,
+        color: int = 0,
+        length_seconds: int = 0,
+        blink_period_ms: int = 0,
+    ) -> str:
+        """Flash specific lights to identify them (used while drawing zones).
+
+        ``lights`` is the compressed wire list (see ``encode_lights``).
+        The app sends zeros for colour/length/period.
+        """
+        payload = await self._put(
+            "/deviceControl/play/impulse",
+            params={"deviceOrGroupId": device_or_group_id},
+            json_body={
+                "impulse": {
+                    "lengthInSeconds": int(length_seconds),
+                    "blinkPeriodMs": int(blink_period_ms),
+                    "lights": list(lights),
+                    "color": int(color),
+                }
+            },
         )
         return str(payload.get("data", {}).get("txId", ""))
 
@@ -369,6 +505,15 @@ class GemstoneClient:
         )
         return [SubscribedEvent.from_api(e) for e in payload.get("data", []) or []]
 
+    async def subscribed_events_past(
+        self, homegroup_id: str
+    ) -> list[SubscribedEvent]:
+        """Subscribed autopilot events that have already happened."""
+        payload = await self._get(
+            "/events/listSubscribedPast", params={"homegroupId": homegroup_id}
+        )
+        return [SubscribedEvent.from_api(e) for e in payload.get("data", []) or []]
+
     async def events_categories(self) -> list[EventCategory]:
         """Full catalogue of autopilot event categories.
 
@@ -388,6 +533,73 @@ class GemstoneClient:
             "/timer/listByHomegroup", params={"homegroupId": homegroup_id}
         )
         return [Timer.from_api(t) for t in payload.get("data", []) or []]
+
+    async def create_timer(
+        self,
+        device_or_group_id: str,
+        homegroup_id: str,
+        *,
+        name: str,
+        on_time: str,
+        off_time: str,
+        pattern: Pattern,
+        enabled: bool = True,
+        timer_type: str = "daily",
+        timer_id: str | None = None,
+    ) -> Timer:
+        """Create a timer that plays ``pattern`` between two times.
+
+        ``on_time`` / ``off_time`` are ``"HH:MM"`` (24h) or ``"sunset"``
+        / ``"sunrise"``. The API has no update call: to edit a timer,
+        delete it and create it again.
+        """
+        timer_id = timer_id or str(uuid.uuid4())
+        body = {
+            "enabled": bool(enabled),
+            "name": name,
+            "timerData": TimerData(
+                timer_type=timer_type, on_time=on_time, off_time=off_time
+            ).to_api(),
+            "assigneeId": device_or_group_id,
+            "homegroupId": homegroup_id,
+            "timerPatternData": {
+                "pattern": {
+                    "name": pattern.name,
+                    "colors": pattern.colors,
+                    "animation": pattern.animation,
+                    "brightness": pattern.brightness,
+                    "id": pattern.id,
+                    "speed": pattern.speed,
+                    "direction": pattern.direction,
+                    "referencePatternId": pattern.reference_pattern_id,
+                }
+            },
+            "id": timer_id,
+        }
+        payload = await self._post(
+            "/timer/create",
+            params={"deviceOrGroupId": device_or_group_id},
+            json_body={"timer": body},
+        )
+        body["txId"] = str((payload.get("data") or {}).get("txId", ""))
+        return Timer.from_api(body)
+
+    async def set_timer_enabled(
+        self, device_or_group_id: str, timer_id: str, enabled: bool
+    ) -> None:
+        """Enable or disable a timer."""
+        await self._put(
+            "/timer/enabled",
+            params={"id": timer_id, "deviceOrGroupId": device_or_group_id},
+            json_body={"enabled": bool(enabled)},
+        )
+
+    async def delete_timer(self, device_or_group_id: str, timer_id: str) -> None:
+        """Delete a timer."""
+        await self._delete(
+            "/timer/delete",
+            params={"deviceOrGroupId": device_or_group_id, "id": timer_id},
+        )
 
     # ------------------------------------------------------------------
     # Misc
@@ -447,6 +659,12 @@ class GemstoneClient:
         async with self._request(
             "POST", path, params=params, json_body=json_body
         ) as resp:
+            return await self._handle(resp)
+
+    async def _delete(
+        self, path: str, *, params: dict[str, str] | None = None
+    ) -> dict[str, Any]:
+        async with self._request("DELETE", path, params=params) as resp:
             return await self._handle(resp)
 
     @staticmethod

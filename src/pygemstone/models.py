@@ -17,6 +17,53 @@ from datetime import UTC, datetime
 from typing import Any
 
 
+def encode_lights(indices: Any) -> list[int]:
+    """Encode 0-based light indices into Gemstone's compressed ``lights`` list.
+
+    The wire format is a flat list where a lone value is one light and a
+    repeated value ``a, a, b`` is the inclusive range ``a..b``. Like the
+    official app, runs of four or more consecutive lights are compressed
+    and shorter runs are sent as individual indices (``[0, 1, 2]`` but
+    ``[0, 0, 3]``). Input order and duplicates are ignored.
+    """
+    ordered = sorted({int(i) for i in indices})
+    if any(i < 0 for i in ordered):
+        raise ValueError("light indices must be >= 0")
+    out: list[int] = []
+    i = 0
+    while i < len(ordered):
+        j = i
+        while j + 1 < len(ordered) and ordered[j + 1] == ordered[j] + 1:
+            j += 1
+        if j - i + 1 >= 4:
+            out.extend([ordered[i], ordered[i], ordered[j]])
+        else:
+            out.extend(ordered[i : j + 1])
+        i = j + 1
+    return out
+
+
+def decode_lights(encoded: Any) -> list[int]:
+    """Expand a compressed Gemstone ``lights`` list into sorted 0-based indices.
+
+    Inverse of :func:`encode_lights`: ``[0, 0, 3, 7]`` → ``[0, 1, 2, 3, 7]``.
+    """
+    values = [int(v) for v in encoded or []]
+    result: set[int] = set()
+    i = 0
+    while i < len(values):
+        if i + 2 < len(values) and values[i] == values[i + 1]:
+            start, end = values[i], values[i + 2]
+            if end < start:
+                raise ValueError(f"invalid light range {start}..{end}")
+            result.update(range(start, end + 1))
+            i += 3
+        else:
+            result.add(values[i])
+            i += 1
+    return sorted(result)
+
+
 def _ts(value: Any) -> datetime | None:
     """Convert a Gemstone unix-seconds timestamp to a tz-aware ``datetime``."""
     if value is None:
@@ -93,6 +140,7 @@ class Pattern:
     direction: int = 0
     background_color: int = 0
     reference_pattern_id: str | None = None
+    extra_parameters: dict[str, Any] | None = None
     raw: dict[str, Any] = field(default_factory=dict)
 
     @classmethod
@@ -107,6 +155,7 @@ class Pattern:
             direction=int(payload.get("direction", 0)),
             background_color=int(payload.get("backgroundColor", 0)),
             reference_pattern_id=payload.get("referencePatternId"),
+            extra_parameters=payload.get("extraParameters"),
             raw=payload,
         )
 
@@ -114,7 +163,7 @@ class Pattern:
         """Render back to the wire format expected by ``play/pattern``."""
         if self.raw:
             return self.raw
-        return {
+        body: dict[str, Any] = {
             "id": self.id,
             "name": self.name,
             "colors": self.colors,
@@ -125,6 +174,9 @@ class Pattern:
             "backgroundColor": self.background_color,
             "referencePatternId": self.reference_pattern_id,
         }
+        if self.extra_parameters is not None:
+            body["extraParameters"] = self.extra_parameters
+        return body
 
 
 @dataclass(slots=True)
@@ -292,8 +344,9 @@ class FolderPattern:
 class StaticColorSegment:
     """One coloured light segment within an :class:`ArchitecturalDesign`.
 
-    ``lights`` is the raw per-segment light-index/count payload sent by
-    the app; we don't yet know its exact semantics so it's kept as-is.
+    ``lights`` is the compressed wire list (see :func:`encode_lights`);
+    use :meth:`from_indices` / :attr:`indices` to work with plain 0-based
+    light numbers. ``color`` uses the packed ``0xWWBBGGRR`` layout.
     """
 
     lights: list[int] = field(default_factory=list)
@@ -305,6 +358,15 @@ class StaticColorSegment:
             lights=list(payload.get("lights", []) or []),
             color=int(payload.get("color", 0)),
         )
+
+    @classmethod
+    def from_indices(cls, indices: Any, color: int) -> StaticColorSegment:
+        return cls(lights=encode_lights(indices), color=int(color))
+
+    @property
+    def indices(self) -> list[int]:
+        """The 0-based light indices this segment covers."""
+        return decode_lights(self.lights)
 
     def to_api(self) -> dict[str, Any]:
         return {"lights": self.lights, "color": self.color}
@@ -374,6 +436,58 @@ class ArchitecturalDesign:
             "name": self.name,
             "preview": preview,
             "staticColors": [sc.to_api() for sc in self.static_colors],
+        }
+
+
+@dataclass(slots=True)
+class Zone:
+    """A named, reusable range of lights on one device.
+
+    From ``/deviceControl/zone/list``; created/updated with
+    ``/deviceControl/zone/save`` (same call, client-chosen ``id``).
+    ``lights`` uses the compressed encoding (see :func:`encode_lights`).
+    """
+
+    id: str
+    device_id: str
+    name: str
+    lights: list[int] = field(default_factory=list)
+    icon: str = "house_3"
+    confirmed: bool = False
+    tx_id: str = ""
+    created_at: datetime | None = None
+    last_updated_at: datetime | None = None
+    raw: dict[str, Any] = field(default_factory=dict)
+
+    @classmethod
+    def from_api(cls, payload: dict[str, Any]) -> Zone:
+        return cls(
+            id=payload.get("id", ""),
+            device_id=payload.get("deviceId", ""),
+            name=payload.get("name", ""),
+            lights=list(payload.get("lights", []) or []),
+            icon=payload.get("icon", "") or "",
+            confirmed=bool(payload.get("confirmed", False)),
+            tx_id=payload.get("txId", "") or "",
+            created_at=_ts(payload.get("createdAt")),
+            last_updated_at=_ts(payload.get("lastUpdatedAt")),
+            raw=payload,
+        )
+
+    @property
+    def indices(self) -> list[int]:
+        """The 0-based light indices in this zone."""
+        return decode_lights(self.lights)
+
+    def to_api(self) -> dict[str, Any]:
+        """Render the body expected by ``deviceControl/zone/save``."""
+        return {
+            "deviceId": self.device_id,
+            "name": self.name,
+            "id": self.id,
+            "lights": self.lights,
+            "icon": self.icon,
+            "confirmed": self.confirmed,
         }
 
 
@@ -619,6 +733,13 @@ class TimerData:
             on_time=payload.get("onTime", ""),
             off_time=payload.get("offTime", ""),
         )
+
+    def to_api(self) -> dict[str, Any]:
+        return {
+            "onTime": self.on_time,
+            "offTime": self.off_time,
+            "timerType": self.timer_type,
+        }
 
 
 @dataclass(slots=True)
