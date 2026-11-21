@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import re
 import time
+from typing import Any
 
 import pytest
 from aioresponses import aioresponses
@@ -11,8 +12,17 @@ from aioresponses import aioresponses
 from pygemstone.auth import TokenSet
 from pygemstone.client import GemstoneClient
 from pygemstone.const import REST_API_BASE
-from pygemstone.errors import GemstoneApiError, GemstoneAuthError
-from pygemstone.models import ArchitecturalDesign, Pattern, StaticColorSegment
+from pygemstone.errors import (
+    GemstoneApiError,
+    GemstoneAuthError,
+    GemstoneTimeoutError,
+)
+from pygemstone.models import (
+    ArchitecturalDesign,
+    Pattern,
+    StaticColorSegment,
+    Timer,
+)
 
 
 @pytest.fixture
@@ -835,6 +845,191 @@ async def test_timer_create_enable_delete(gc: GemstoneClient) -> None:
     assert t["timerPatternData"]["pattern"]["referencePatternId"] == "ref"
     _, put = _req(m, "PUT")
     assert put.kwargs["json"] == {"enabled": False}
+
+
+@pytest.mark.rest
+async def test_timer_create_weekly_and_yearly(gc: GemstoneClient) -> None:
+    pattern = Pattern(id="p1", name="Warm", colors=[255], background_color=0)
+    with aioresponses() as m:
+        url = f"{REST_API_BASE}/timer/create?deviceOrGroupId=h2-test"
+        m.post(url, payload={"data": {"txId": "tx-w"}})
+        m.post(url, payload={"data": {"txId": "tx-y"}})
+        weekly = await gc.create_timer(
+            "h2-test", "hg1", name="MWF", on_time="sunset", off_time="23:00",
+            pattern=pattern, timer_type="weekly", days_of_week=[5, 1, 3, 3],
+            on_offset_minutes=-45,
+        )
+        yearly = await gc.create_timer(
+            "h2-test", "hg1", name="Xmas", on_time="sunset", off_time="23:00",
+            pattern=pattern, timer_type="yearly",
+            start_date="12-25", end_date="12-25",
+        )
+    calls = [c for (meth, _), cs in m.requests.items() if meth == "POST" for c in cs]
+    w, y = (c.kwargs["json"]["timer"] for c in calls)
+    assert w["timerData"] == {
+        "onTime": "sunset", "offTime": "23:00", "timerType": "weekly",
+        "onOffsetInMinutes": -45, "repeatDaysOfTheWeek": [1, 3, 5],
+    }
+    assert y["timerData"] == {
+        "onTime": "sunset", "offTime": "23:00", "timerType": "yearly",
+        "startDate": "12-25", "endDate": "12-25",
+        "repeatDaysOfTheWeek": [0, 1, 2, 3, 4, 5, 6],
+    }
+    assert w["timerPatternData"]["pattern"]["backgroundColor"] == 0
+    assert weekly.timer_data is not None and weekly.timer_data.days_of_week == [1, 3, 5]
+    assert yearly.timer_data is not None and yearly.timer_data.start_date == "12-25"
+
+
+_LIST_URL = f"{REST_API_BASE}/timer/listByHomegroup?homegroupId=hg1"
+
+
+def _listed(
+    timer_id: str = "t1", *, name: str = "Evening", enabled: bool = True,
+    timer_data: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    return {"data": [{
+        "id": timer_id, "name": name, "homegroupId": "hg1",
+        "assigneeId": "h2-test", "enabled": enabled,
+        "timerData": timer_data
+        or {"timerType": "daily", "onTime": "sunset", "offTime": "22:00"},
+        "timerPatternData": {"pattern": {"id": "p1", "name": "Warm", "colors": [255]}},
+    }]}
+
+
+def _calls(m: aioresponses) -> list[tuple[str, str]]:
+    """Every request made, as (METHOD, path)."""
+    return [
+        (meth, url.path)
+        for (meth, url), cs in m.requests.items() for _ in cs
+    ]
+
+
+@pytest.mark.rest
+async def test_timer_update_puts_full_body(gc: GemstoneClient) -> None:
+    pattern = Pattern(id="p1", name="Warm", colors=[255])
+    with aioresponses() as m:
+        m.post(
+            f"{REST_API_BASE}/timer/create?deviceOrGroupId=h2-test",
+            payload={"data": {"txId": "tx-c"}},
+        )
+        m.put(
+            f"{REST_API_BASE}/timer/update?deviceOrGroupId=h2-test",
+            payload={"data": {"txId": "tx-u"}},
+        )
+        timer = await gc.create_timer(
+            "h2-test", "hg1", name="Evening", on_time="sunset",
+            off_time="22:00", pattern=pattern, timer_id="t1",
+        )
+        assert timer.timer_data is not None
+        timer.name = "Late"
+        timer.timer_data.timer_type = "weekly"
+        timer.timer_data.days_of_week = [6, 0]
+        updated = await gc.update_timer(timer)
+    _, put = _req(m, "PUT")
+    t = put.kwargs["json"]["timer"]
+    assert t["id"] == "t1" and t["name"] == "Late" and t["enabled"] is True
+    assert t["assigneeId"] == "h2-test" and t["homegroupId"] == "hg1"
+    assert t["timerData"]["repeatDaysOfTheWeek"] == [0, 6]
+    assert updated.tx_id == "tx-u"
+    assert not any(meth == "GET" for meth, _ in _calls(m))
+
+
+@pytest.mark.rest
+async def test_timer_create_disabled_waits_then_disables(
+    gc: GemstoneClient,
+) -> None:
+    """The cloud ignores ``enabled`` on create; disable once it lands."""
+    gc.timer_poll_interval = 0
+    pattern = Pattern(id="p1", name="Warm", colors=[255])
+    with aioresponses() as m:
+        m.post(
+            f"{REST_API_BASE}/timer/create?deviceOrGroupId=h2-test",
+            payload={"data": {"txId": "tx-c"}},
+        )
+        m.get(_LIST_URL, payload={"data": []})
+        m.get(_LIST_URL, payload=_listed(enabled=True))
+        m.put(
+            f"{REST_API_BASE}/timer/enabled?id=t1&deviceOrGroupId=h2-test",
+            payload={"statusCode": 200},
+        )
+        m.get(_LIST_URL, payload=_listed(enabled=True))
+        m.get(_LIST_URL, payload=_listed(enabled=False))
+        timer = await gc.create_timer(
+            "h2-test", "hg1", name="Evening", on_time="sunset",
+            off_time="22:00", pattern=pattern, timer_id="t1", enabled=False,
+        )
+    assert timer.enabled is False
+    gets = sum(1 for meth, _ in _calls(m) if meth == "GET")
+    assert gets == 4
+    _, put = _req(m, "PUT")
+    assert put.kwargs["json"] == {"enabled": False}
+
+
+@pytest.mark.rest
+async def test_timer_update_disabled_waits_for_new_data_then_disables(
+    gc: GemstoneClient,
+) -> None:
+    """Updates re-enable the timer; wait for the new data, then disable."""
+    gc.timer_poll_interval = 0
+    old = Timer.from_api(_listed(name="Evening", enabled=False)["data"][0])
+    old.name = "Late"
+    new_data = {"timerType": "daily", "onTime": "sunset", "offTime": "22:00"}
+    with aioresponses() as m:
+        m.put(
+            f"{REST_API_BASE}/timer/update?deviceOrGroupId=h2-test",
+            payload={"data": {"txId": "tx-u"}},
+        )
+        m.get(_LIST_URL, payload=_listed(name="Evening", enabled=False))
+        m.get(_LIST_URL, payload=_listed(name="Late", timer_data=new_data))
+        m.put(
+            f"{REST_API_BASE}/timer/enabled?id=t1&deviceOrGroupId=h2-test",
+            payload={"statusCode": 200},
+        )
+        m.get(_LIST_URL, payload=_listed(name="Late", enabled=False))
+        await gc.update_timer(old)
+    assert [meth for meth, _ in _calls(m)].count("GET") == 3
+    enabled_puts = [
+        c for (meth, url), cs in m.requests.items()
+        if meth == "PUT" and url.path.endswith("/timer/enabled") for c in cs
+    ]
+    assert [c.kwargs["json"] for c in enabled_puts] == [{"enabled": False}]
+
+
+@pytest.mark.rest
+async def test_wait_for_timer_gone_and_timeout(gc: GemstoneClient) -> None:
+    gc.timer_poll_interval = 0
+    with aioresponses() as m:
+        m.get(_LIST_URL, payload=_listed())
+        m.get(_LIST_URL, payload={"data": []})
+        assert await gc.wait_for_timer("hg1", "t1", present=False) is None
+        m.get(_LIST_URL, payload={"data": []}, repeat=True)
+        with pytest.raises(GemstoneTimeoutError):
+            await gc.wait_for_timer("hg1", "t1", timeout=0)
+
+
+@pytest.mark.rest
+@pytest.mark.parametrize(
+    "kwargs",
+    [
+        {"timer_type": "weekly"},
+        {"timer_type": "weekly", "days_of_week": []},
+        {"timer_type": "weekly", "days_of_week": [7]},
+        {"timer_type": "yearly", "start_date": "12-25"},
+        {"timer_type": "yearly", "start_date": "12-25", "end_date": "2026-12-25"},
+        {"timer_type": "yearly", "start_date": "02-30", "end_date": "03-01"},
+        {"timer_type": "monthly"},
+    ],
+)
+async def test_timer_invalid_schedule_rejected_before_request(
+    gc: GemstoneClient, kwargs: dict[str, Any]
+) -> None:
+    pattern = Pattern(id="p1", name="Warm", colors=[255])
+    with aioresponses() as m, pytest.raises(ValueError):
+        await gc.create_timer(
+            "h2-test", "hg1", name="x", on_time="sunset", off_time="23:00",
+            pattern=pattern, **kwargs,
+        )
+    assert not m.requests
 
 
 @pytest.mark.rest

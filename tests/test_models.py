@@ -638,3 +638,26 @@ def test_zone_round_trip() -> None:
         "icon": "house_3",
         "confirmed": False,
     }
+
+
+# timerData shapes captured from the iOS app (weekly / yearly / offset).
+@pytest.mark.unit
+@pytest.mark.parametrize(
+    "payload",
+    [
+        {"onTime": "sunset", "offTime": "23:00", "timerType": "daily"},
+        {"onTime": "sunset", "offTime": "23:00", "timerType": "daily", "onOffsetInMinutes": -45},
+        {"onTime": "sunset", "offTime": "23:00", "timerType": "weekly", "repeatDaysOfTheWeek": [1, 3, 5]},
+        {
+            "onTime": "sunset", "offTime": "23:00", "timerType": "yearly",
+            "startDate": "12-25", "endDate": "12-25",
+            "repeatDaysOfTheWeek": [0, 1, 2, 3, 4, 5, 6],
+        },
+    ],
+)
+def test_timer_data_round_trips_captured_shapes(payload: dict[str, object]) -> None:
+    from pygemstone.models import TimerData
+
+    td = TimerData.from_api(payload)
+    td.validate()
+    assert td.to_api() == payload
