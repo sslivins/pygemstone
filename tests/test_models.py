@@ -483,6 +483,21 @@ def test_events_settings_decode() -> None:
     assert es.schedule is not None
     assert es.schedule.on_time == "sunset"
     assert es.schedule.off_time == "22:00"
+    assert es.brightness is None
+    body = es.to_api()
+    assert "brightness" not in body
+    assert "createdAt" not in body and "lastUpdatedAt" not in body
+    assert body["schedule"] == EVENTS_SETTINGS_SAMPLE["schedule"]
+
+
+@pytest.mark.unit
+def test_events_settings_brightness_clamped() -> None:
+    es = EventsSettings.from_api({**EVENTS_SETTINGS_SAMPLE, "brightness": 128})
+    assert es.brightness == 128
+    es.brightness = 999
+    assert es.to_api()["brightness"] == 255
+    es.brightness = -5
+    assert es.to_api()["brightness"] == 0
 
 
 @pytest.mark.unit

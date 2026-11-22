@@ -51,6 +51,7 @@ is essentially:
   - `downloadable_folders(page=N)` / `downloadable_patterns(page=N)` — Gemstone-curated catalogue
 - **Autopilot / scheduling:**
   - `events_settings(hg)` — daily on/off window + enabled categories
+  - `update_events_settings(settings)` — save settings (full body; fetch, modify, save)
   - `subscribed_events(hg, page=N)` — date-bound holiday/event subscriptions
   - `events_categories()` — full catalogue of holiday / sport / event categories
 - **Timers:**
