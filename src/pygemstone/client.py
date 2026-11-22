@@ -501,6 +501,20 @@ class GemstoneClient:
         )
         return EventsSettings.from_api(payload.get("data", {}) or {})
 
+    async def update_events_settings(self, settings: EventsSettings) -> None:
+        """Replace a home group's autopilot settings.
+
+        The backend expects the full object, so fetch with
+        :meth:`events_settings`, modify, then pass it back here.
+        """
+        if not settings.homegroup_id:
+            raise ValueError("settings.homegroup_id is required")
+        await self._put(
+            "/events/settings",
+            params={"homegroupId": settings.homegroup_id},
+            json_body=settings.to_api(),
+        )
+
     async def subscribed_events(
         self, homegroup_id: str, page: int = 0
     ) -> list[SubscribedEvent]:

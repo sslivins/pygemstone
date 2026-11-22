@@ -19,6 +19,7 @@ from pygemstone.errors import (
 )
 from pygemstone.models import (
     ArchitecturalDesign,
+    EventsSettings,
     Pattern,
     StaticColorSegment,
     Timer,
@@ -532,6 +533,62 @@ async def test_events_settings(gc: GemstoneClient) -> None:
     assert es.allow_animated_patterns is False
     assert es.schedule is not None
     assert es.schedule.on_time == "sunset"
+
+
+@pytest.mark.rest
+async def test_update_events_settings_round_trip(gc: GemstoneClient) -> None:
+    live = {
+        "homegroupId": "hg",
+        "categoryIds": ["fun", "christmas"],
+        "deviceIds": ["d-1", "d-2"],
+        "setupYet": True,
+        "allowStaticPatterns": True,
+        "allowAnimatedPatterns": True,
+        "schedule": {
+            "onTime": "sunset", "offTime": "22:05",
+            "onOffsetInMinutes": -15, "offOffsetInMinutes": 0,
+        },
+        "brightness": 207,
+        "createdAt": 1795370816,
+        "lastUpdatedAt": 1795370816,
+        "futureKey": {"x": 1},
+    }
+    with aioresponses() as m:
+        m.get(
+            f"{REST_API_BASE}/events/settings?homegroupId=hg",
+            payload={"data": live},
+        )
+        m.put(f"{REST_API_BASE}/events/settings?homegroupId=hg", body="")
+        es = await gc.events_settings("hg")
+        assert es.brightness == 207
+        assert es.schedule is not None
+        es.schedule.on_offset_minutes = 30
+        es.schedule.off_time = "23:30"
+        es.category_ids.append("nhl-canucks")
+        es.allow_animated_patterns = False
+        await gc.update_events_settings(es)
+    _, put = _req(m, "PUT")
+    body = put.kwargs["json"]
+    assert body == {
+        "homegroupId": "hg",
+        "categoryIds": ["fun", "christmas", "nhl-canucks"],
+        "deviceIds": ["d-1", "d-2"],
+        "setupYet": True,
+        "allowStaticPatterns": True,
+        "allowAnimatedPatterns": False,
+        "schedule": {
+            "onTime": "sunset", "offTime": "23:30",
+            "onOffsetInMinutes": 30, "offOffsetInMinutes": 0,
+        },
+        "brightness": 207,
+        "futureKey": {"x": 1},
+    }
+
+
+@pytest.mark.rest
+async def test_update_events_settings_requires_homegroup(gc: GemstoneClient) -> None:
+    with pytest.raises(ValueError):
+        await gc.update_events_settings(EventsSettings(homegroup_id=""))
 
 
 @pytest.mark.rest

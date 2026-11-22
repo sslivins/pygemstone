@@ -633,6 +633,14 @@ class EventsScheduleWindow:
             off_offset_minutes=int(payload.get("offOffsetInMinutes", 0) or 0),
         )
 
+    def to_api(self) -> dict[str, Any]:
+        return {
+            "onTime": self.on_time,
+            "offTime": self.off_time,
+            "onOffsetInMinutes": int(self.on_offset_minutes),
+            "offOffsetInMinutes": int(self.off_offset_minutes),
+        }
+
 
 @dataclass(slots=True)
 class EventsSettings:
@@ -645,13 +653,42 @@ class EventsSettings:
     allow_static_patterns: bool = True
     allow_animated_patterns: bool = True
     schedule: EventsScheduleWindow | None = None
+    # Autopilot brightness 0-255; ``None`` if the backend hasn't stored one.
+    brightness: int | None = None
     created_at: datetime | None = None
     last_updated_at: datetime | None = None
     raw: dict[str, Any] = field(default_factory=dict)
 
+    def to_api(self) -> dict[str, Any]:
+        """Full ``PUT /events/settings`` body.
+
+        Starts from ``raw`` so keys this library doesn't model survive a
+        read-modify-write; server-managed timestamps are dropped.
+        """
+        body = {
+            k: v for k, v in self.raw.items()
+            if k not in ("createdAt", "lastUpdatedAt")
+        }
+        body.update(
+            {
+                "homegroupId": self.homegroup_id,
+                "categoryIds": list(self.category_ids),
+                "deviceIds": list(self.device_ids),
+                "setupYet": bool(self.setup_yet),
+                "allowStaticPatterns": bool(self.allow_static_patterns),
+                "allowAnimatedPatterns": bool(self.allow_animated_patterns),
+            }
+        )
+        if self.schedule is not None:
+            body["schedule"] = self.schedule.to_api()
+        if self.brightness is not None:
+            body["brightness"] = max(0, min(255, int(self.brightness)))
+        return body
+
     @classmethod
     def from_api(cls, payload: dict[str, Any]) -> EventsSettings:
         sched = payload.get("schedule")
+        bright = payload.get("brightness")
         return cls(
             homegroup_id=payload.get("homegroupId", ""),
             category_ids=list(payload.get("categoryIds", []) or []),
@@ -660,6 +697,7 @@ class EventsSettings:
             allow_static_patterns=bool(payload.get("allowStaticPatterns", True)),
             allow_animated_patterns=bool(payload.get("allowAnimatedPatterns", True)),
             schedule=EventsScheduleWindow.from_api(sched) if sched else None,
+            brightness=int(bright) if bright is not None else None,
             created_at=_ts(payload.get("createdAt")),
             last_updated_at=_ts(payload.get("lastUpdatedAt")),
             raw=payload,
